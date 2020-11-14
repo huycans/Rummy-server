@@ -35,7 +35,7 @@ const url = process.env.MONGODB_URI || config.mongoUrl;
 const connect = mongoose.connect(url, { useNewUrlParser: true });
 connect.then(
   db => {
-    console.log("Connect correctly to the server");
+    console.log("Connect correctly to database");
   },
   error => {
     console.log(error);
