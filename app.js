@@ -70,8 +70,15 @@ wss.on('close', () => console.log('*disconnected*'));
 app.use('/welcome', welcomeRouter);
 app.use('/user', userRouter);
 
+
+
 //path to game
-app.get('/join/:lobby', cors.cors, (req, res) => {
+app
+  .route("/join/:lobby")
+  .options(cors.corsWithOptions, (req, res) => {
+    res.sendStatus(200);
+  })
+.get((req, res) => {
   let code = req.params.lobby;
   if (rummy.addLobby(code)) {
     // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
