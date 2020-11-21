@@ -16,6 +16,7 @@ module.exports = class Game {
         this.lobbies = {};
 
         webSocketSrv.on('connection', (ws,req) => {
+            console.log("A client has connected.");
             this.sendData(ws, {
                 cmd: 'connected'
             })

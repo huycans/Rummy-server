@@ -18,6 +18,7 @@ module.exports = class Lobby {
         //this is a game token to generate a random code for lobby
         this.token = crypt.randomBytes(22).toString('hex');
 
+        //sockets represents players
         this.sockets = [null,null];
         this.isWaiting = true;
         this.choosePhase = true;
@@ -32,13 +33,13 @@ module.exports = class Lobby {
      * In this game, Ace can be meld with 2 and 3 / Q and K
      */
     generateCards() {
-        this.cardRanks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        this.cardRanks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
 
         let cards = [];
 
-        for (let suit of ['spade', 'heart', 'diamond', 'club']) {
-            let i = 2;
-            while (i <= 10) {
+        for (let suit of ['s', 'h', 'd', 'c']) {
+            let i = 1;
+            while (i <= 13) {
                 cards.push({
                     html: `.card._${i}.${suit}`,
                     suit: suit,
@@ -47,14 +48,14 @@ module.exports = class Lobby {
                 });
                 i++;
             }
-            for (let face of ['A', 'J', 'Q', 'K']) {
-                cards.push({
-                        html: `.card._${face}.${suit}`,
-                        suit: suit,
-                        rank: face,
-                        value: this.cardRanks.indexOf(face)
-                });
-            }
+            // for (let face of ['A', 'J', 'Q', 'K']) {
+            //     cards.push({
+            //             html: `.card._${face}.${suit}`,
+            //             suit: suit,
+            //             rank: face,
+            //             value: this.cardRanks.indexOf(face)
+            //     });
+            // }
         }
         //Loop for shuffling cards
         let l = cards.length - 1;
@@ -66,7 +67,8 @@ module.exports = class Lobby {
 
         this.playerCards = [cards.splice(0,10), cards.splice(0,10)];
         this.melds = [];
-        this.draw = cards.splice(0,1);
+        //a card to draw from the deck
+        this.discardPile = cards.splice(0,1);
         this.deck = cards;
     }
 
@@ -181,7 +183,7 @@ module.exports = class Lobby {
                 opcards: this.playerCards[this.sockets.indexOf(webSocket) ^ 1].length,
                 deck: this.deck.length,
                 melds: this.melds,
-                draw: this.draw,
+                draw: this.discardPile,
                 myturn: this.sockets.indexOf(webSocket) == this.turn
             });
         }
@@ -195,14 +197,14 @@ module.exports = class Lobby {
     cardChoosing(playerIndex, data) {
         //Draw card from deck
         if(data.button=='left' && data.card=='deck' && this.deck.length>0) {
-            let nCard = this.deck.pop();
-            this.playerCards[playerIndex].push(nCard);
+            let topCard = this.deck.pop();
+            this.playerCards[playerIndex].push(topCard);
 
             this.sendData(this.sockets[playerIndex], {
                 cmd: 'draw',
                 from: 'deck',
                 player: 'me',
-                card: nCard
+                card: topCard
             });
             this.sendData(this.sockets[playerIndex ^ 1], {
                 cmd: 'draw',
@@ -212,19 +214,19 @@ module.exports = class Lobby {
             this.choosePhase = false;
         } 
         //Draw card from pile
-        else if(data.button=='left' && data.card!='deck' && this.draw.length>0 && this.findMatchCards(this.draw,data)!=null) {
-            let nCard = this.draw.pop();
-            this.playerCards[playerIndex].push(nCard);
+        else if(data.button=='left' && data.card!='deck' && this.discardPile.length>0 && this.findMatchCards(this.discardPile,data)!=null) {
+            let topCard = this.discardPile.pop();
+            this.playerCards[playerIndex].push(topCard);
 
             this.sendData(this.sockets[playerIndex], {
                 cmd: 'draw',
-                from: 'draw',
+                from: 'discardPile',
                 player: 'me',
-                card: nCard
+                card: topCard
             });
             this.sendData(this.sockets[playerIndex ^ 1], {
                 cmd: 'draw',
-                from: 'draw',
+                from: 'discardPile',
                 player: 'op'
             });
             this.choosePhase = false;
@@ -253,7 +255,7 @@ module.exports = class Lobby {
      */
     discardCard(playerIndex, card) {
         this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card),1);
-        this.draw.push(card);
+        this.discardPile.push(card);
 
         this.sendData(this.sockets[playerIndex], {
             cmd: 'discard',
@@ -269,6 +271,7 @@ module.exports = class Lobby {
         this.turn ^= 1;
     }
 
+    //TODO: rewrite this. the server do not create a meld automatically
     /**
      * This function is used to meld cards either by suit or rank
      * @param {number} playerIndex -> the current player that is doing a meld
