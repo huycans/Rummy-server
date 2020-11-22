@@ -93,7 +93,6 @@ module.exports = class Game {
      */
     addLobby(code) {
         let status = this.getLobbyStatus(code);
-
         if (status == 'waiting')
         {
             return true;
@@ -101,6 +100,8 @@ module.exports = class Game {
         //Create new lobby
         else if (status == 'open') {
             this.lobbies[code] = new Lobby(code, this);
+            // this.sendData(JSON.stringify("Lobby successfully created"));
+            // console.log("List of lobbies", this.lobbies);
             return true;
         }
         else {

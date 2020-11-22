@@ -33,7 +33,7 @@ module.exports = class Lobby {
      * In this game, Ace can be meld with 2 and 3 / Q and K
      */
     generateCards() {
-        this.cardRanks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
+        this.cardRanks = [1,2,3,4,5,6,7,8,9,10,11,12,13];
 
         let cards = [];
 
@@ -170,10 +170,13 @@ module.exports = class Lobby {
             this.sendData(webSocket, {cmd: 'exit'} );
         }
         else {
-            //Add client to the game lobby
-            this.sockets[this.sockets.indexOf(null)] = webSocket;
-            if(this.sockets.indexOf(null) == -1) {
-                this.isWaiting = false;
+            //if client is not in the lobby
+            if (this.sockets.indexOf(webSocket) == -1) {
+                //Add client to the game lobby
+                this.sockets[this.sockets.indexOf(null)] = webSocket;
+                if (this.sockets.indexOf(null) == -1) {
+                    this.isWaiting = false;
+                }
             }
 
             //Send copy of current deck and layout to new client
@@ -183,7 +186,7 @@ module.exports = class Lobby {
                 opcards: this.playerCards[this.sockets.indexOf(webSocket) ^ 1].length,
                 deck: this.deck.length,
                 melds: this.melds,
-                draw: this.discardPile,
+                discardPile: this.discardPile,
                 myturn: this.sockets.indexOf(webSocket) == this.turn
             });
         }
@@ -489,10 +492,10 @@ module.exports = class Lobby {
         let total = 0;
 
         for (let card of cards) {
-            if (card.rank == 'A') {
+            if (card.rank == 1) {
                 total += 1;
             }
-            else if (card.rank=='J' || card.rank=='Q' || card.rank=='K') {
+            else if (card.rank==11 || card.rank==12 || card.rank==13) {
                 total += 10;
             }
             else {

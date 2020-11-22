@@ -84,12 +84,12 @@ app
     // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
-    res.json({ message: "Lobby created at " + rummy.lobbies[code].token });
+    res.json({ message: "Lobby created successfully", token: rummy.lobbies[code].token });
   } else {
     // res.redirect('/');
     console.log("Error creating lobby");
     res.statusCode = 500;
-    res.json({ message: "Error creating lobby" });
+    res.json({ message: "Lobby is full or unavailable" });
   }
 });
 
