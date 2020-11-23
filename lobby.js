@@ -1,4 +1,5 @@
 const crypt = require("crypto");
+const { deflateRaw } = require("zlib");
 
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
@@ -20,8 +21,11 @@ module.exports = class Lobby {
 
         //sockets represents players
         this.sockets = [null,null];
+        //the lobby is waiting for new player/has only one player
         this.isWaiting = true;
+        //when the player is choosing/drawing a card
         this.choosePhase = true;
+        //either 1 or 0, depends on this.sockets's index
         this.turn = 0;
 
         this.destruct = null;
@@ -78,6 +82,7 @@ module.exports = class Lobby {
      * @param {Object} data -> the data received from clients 
      */
     processingData(webSocket, data) {
+        console.log("data from clients: ", data);
         //Postpone selfDestruct
         clearTimeout(this.destruct);
         this.destruct = setTimeout( () => { this.selfDestruct(); }, 300*1000);
@@ -87,7 +92,8 @@ module.exports = class Lobby {
         if (data.cmd == 'join') {
             this.joinProcess(webSocket);
         }
-        else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
+        // else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
+        else if (data.cmd == 'draw' && this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
 
             if (this.choosePhase) {
@@ -198,8 +204,12 @@ module.exports = class Lobby {
      * @param {object} data -> the data that is associated with the choosing process
      */
     cardChoosing(playerIndex, data) {
+        // {sent from client
+        //     cmd: draw,
+        //     from: deck/discardPile
+        // }
         //Draw card from deck
-        if(data.button=='left' && data.card=='deck' && this.deck.length>0) {
+        if(data.from=='deck' && this.deck.length>0) {
             let topCard = this.deck.pop();
             this.playerCards[playerIndex].push(topCard);
 
@@ -217,7 +227,7 @@ module.exports = class Lobby {
             this.choosePhase = false;
         } 
         //Draw card from pile
-        else if(data.button=='left' && data.card!='deck' && this.discardPile.length>0 && this.findMatchCards(this.discardPile,data)!=null) {
+        else if (data.from == 'discardPile' && this.discardPile.length>0 && this.findMatchCards(this.discardPile,data)!=null) {
             let topCard = this.discardPile.pop();
             this.playerCards[playerIndex].push(topCard);
 
