@@ -93,25 +93,27 @@ module.exports = class Lobby {
             this.joinProcess(webSocket);
         }
         // else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
-        else if (data.cmd == 'draw' && this.sockets.indexOf(webSocket) == this.turn) {
+        else if  (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
+            if (data.cmd == 'draw') {
 
-            if (this.choosePhase) {
-                this.cardChoosing(playerIndex,data);
+                if (this.choosePhase) {
+                    this.cardChoosing(playerIndex, data);
+                }
             }
             else {
                 let card = this.findMatchCards(this.playerCards[playerIndex], data);
 
                 if (card != null) {
-                    if (data.button == 'left') {
-                        this.discardCard(playerIndex,card);
+                    if (data.cmd = "discard") {
+                        this.discardCard(playerIndex, card);
                     }
                     else {
-                        this.meldCards(playerIndex,card);
+                        this.meldCards(playerIndex, card);
                     }
                     this.checkWinner();
                 }
-            }
+        }
         }
     }
 
