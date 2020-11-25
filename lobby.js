@@ -45,10 +45,10 @@ module.exports = class Lobby {
             let i = 1;
             while (i <= 13) {
                 cards.push({
-                    html: `.card._${i}.${suit}`,
+                    // html: `.card._${i}.${suit}`,
                     suit: suit,
                     rank: "" + i,
-                    value: this.cardRanks.indexOf("" + i)
+                    // value: this.cardRanks.indexOf("" + i)
                 });
                 i++;
             }
@@ -102,16 +102,18 @@ module.exports = class Lobby {
                 }
             }
             else {
-                let card = this.findMatchCards(this.playerCards[playerIndex], data);
+                if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3){
+                    this.meldCards(playerIndex, data.meld)
+                }
+                else {
+                    let card = this.findMatchCards(this.playerCards[playerIndex], data);
 
-                if (card != null) {
-                    if (data.cmd = "discard") {
-                        this.discardCard(playerIndex, card);
+                    if (card != null) {
+                        if (data.cmd = "discard") {
+                            this.discardCard(playerIndex, card);
+                        }
+                        this.checkWinner();
                     }
-                    else {
-                        this.meldCards(playerIndex, card);
-                    }
-                    this.checkWinner();
                 }
         }
         }
@@ -290,31 +292,37 @@ module.exports = class Lobby {
     /**
      * This function is used to meld cards either by suit or rank
      * @param {number} playerIndex -> the current player that is doing a meld
-     * @param {*} card -> the card(s) that is melded
+     * @param {*} meld -> the card(s) that is melded
      */
-    meldCards(playerIndex, card) {
-        let nMeld = this.createNewMeld(this.playerCards[playerIndex],card);
+    meldCards(playerIndex, meld) {
+        // let nMeld = this.createNewMeld(this.playerCards[playerIndex],card);
 
         //Create a new meld
-        if (nMeld.length >= 3) {
-            this.sortDeck(nMeld);
+        //TODO: validate meld
+        let validateMeld = (meld) => {
+            if (meld.length != 3) return false;
+            else return true;
+            //this.playerCards[playerIndex].indexOf(card), 1
+        }
+        if (validateMeld(meld)) {
+            this.sortDeck(meld);
 
-            for (let card of nMeld) {
-                this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card),1);
+            for (let card of meld) {
+                this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card), 1);
             }
-            this.melds.push(nMeld);
+            this.melds.push(meld);
 
             this.sendData(this.sockets[playerIndex],
                 {
                     cmd: 'newmeld',
                     player: 'me',
-                    meld: nMeld
+                    meld: meld
                 });
             this.sendData(this.sockets[playerIndex ^ 1],
                 {
                     cmd: 'newmeld',
                     player: 'op',
-                    meld: nMeld
+                    meld: meld
                 });
         }
         //Check if the card can be added to a meld
