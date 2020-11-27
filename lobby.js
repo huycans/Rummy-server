@@ -3,7 +3,7 @@ const { deflateRaw } = require("zlib");
 
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
- */ 
+ */
 module.exports = class Lobby {
 
     /**
@@ -15,12 +15,12 @@ module.exports = class Lobby {
     constructor(code, game) {
         this.code = code;
         this.game = game;
-        
+
         //this is a game token to generate a random code for lobby
         this.token = crypt.randomBytes(22).toString('hex');
 
         //sockets represents players
-        this.sockets = [null,null];
+        this.sockets = [null, null];
         //the lobby is waiting for new player/has only one player
         this.isWaiting = true;
         //when the player is choosing/drawing a card
@@ -30,6 +30,7 @@ module.exports = class Lobby {
 
         this.destruct = null;
         this.generateCards();
+        this.numberOfMelds = 0;
     }
 
     /**
@@ -37,7 +38,7 @@ module.exports = class Lobby {
      * In this game, Ace can be meld with 2 and 3 / Q and K
      */
     generateCards() {
-        this.cardRanks = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+        this.cardRanks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 
         let cards = [];
 
@@ -47,7 +48,7 @@ module.exports = class Lobby {
                 cards.push({
                     // html: `.card._${i}.${suit}`,
                     suit: suit,
-                    rank: "" + i,
+                    rank: i,
                     // value: this.cardRanks.indexOf("" + i)
                 });
                 i++;
@@ -62,17 +63,17 @@ module.exports = class Lobby {
             // }
         }
         //Loop for shuffling cards
-        let l = cards.length - 1;
-        while (l > 0) {
-            const n = Math.floor(Math.random()*(l+1));
-            [cards[l], cards[n]] = [cards[n], cards[l]];
-            l--;
-        }
+        // let l = cards.length - 1;
+        // while (l > 0) {
+        //     const n = Math.floor(Math.random() * (l + 1));
+        //     [cards[l], cards[n]] = [cards[n], cards[l]];
+        //     l--;
+        // }
 
-        this.playerCards = [cards.splice(0,10), cards.splice(0,10)];
+        this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
         //a card to draw from the deck
-        this.discardPile = cards.splice(0,1);
+        this.discardPile = cards.splice(0, 1);
         this.deck = cards;
     }
 
@@ -83,9 +84,13 @@ module.exports = class Lobby {
      */
     processingData(webSocket, data) {
         console.log("data from clients: ", data);
+        //sanitize data.card.rank, which was converted into string cus JSON.parse
+        if (data.card) {
+            data.card.rank = parseInt(data.card.rank);
+        }
         //Postpone selfDestruct
         clearTimeout(this.destruct);
-        this.destruct = setTimeout( () => { this.selfDestruct(); }, 300*1000);
+        this.destruct = setTimeout(() => { this.selfDestruct(); }, 300 * 1000);
 
         this.checkPlayers();
 
@@ -93,7 +98,7 @@ module.exports = class Lobby {
             this.joinProcess(webSocket);
         }
         // else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
-        else if  (this.sockets.indexOf(webSocket) == this.turn) {
+        else if (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
             if (data.cmd == 'draw') {
 
@@ -102,8 +107,12 @@ module.exports = class Lobby {
                 }
             }
             else {
-                if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3){
-                    this.meldCards(playerIndex, data.meld)
+                if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3) {
+                    this.meldCards(playerIndex, data.meld);
+                }
+                else if (data.cmd == "addmeld") {
+                    let card = this.findMatchCards(this.playerCards[playerIndex], data.card);
+                    this.addCardToMeld(playerIndex, card, data.meldId);
                 }
                 else {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data);
@@ -115,7 +124,7 @@ module.exports = class Lobby {
                         this.checkWinner();
                     }
                 }
-        }
+            }
         }
     }
 
@@ -124,8 +133,8 @@ module.exports = class Lobby {
      */
     selfDestruct() {
         console.log("Removing Lobby", this.code);
-        for(let socket of this.sockets) {
-            if(socket != null) {
+        for (let socket of this.sockets) {
+            if (socket != null) {
                 socket.terminate();
             }
         }
@@ -137,12 +146,12 @@ module.exports = class Lobby {
      */
     checkPlayers() {
         let l = 0;
-        while(l < this.sockets.length) {
-            if(this.sockets[l] != null) {
+        while (l < this.sockets.length) {
+            if (this.sockets[l] != null) {
                 try {
-                    this.sendData(this.sockets[l], {cmd: 'ping'});
+                    this.sendData(this.sockets[l], { cmd: 'ping' });
                 }
-                catch(err) {
+                catch (err) {
                     this.isWaiting = true;
                     this.sockets[l] = null;
                 }
@@ -176,8 +185,8 @@ module.exports = class Lobby {
      */
     joinProcess(webSocket) {
         //Game lobby is already full
-        if(this.sockets.indexOf(null) == -1 || !this.isWaiting) {
-            this.sendData(webSocket, {cmd: 'exit'} );
+        if (this.sockets.indexOf(null) == -1 || !this.isWaiting) {
+            this.sendData(webSocket, { cmd: 'exit' });
         }
         else {
             //if client is not in the lobby
@@ -213,7 +222,7 @@ module.exports = class Lobby {
         //     from: deck/discardPile
         // }
         //Draw card from deck
-        if(data.from=='deck' && this.deck.length>0) {
+        if (data.from == 'deck' && this.deck.length > 0) {
             let topCard = this.deck.pop();
             this.playerCards[playerIndex].push(topCard);
 
@@ -229,9 +238,9 @@ module.exports = class Lobby {
                 player: 'op'
             });
             this.choosePhase = false;
-        } 
+        }
         //Draw card from pile
-        else if (data.from == 'discardPile' && this.discardPile.length>0 && this.findMatchCards(this.discardPile,data)!=null) {
+        else if (data.from == 'discardPile' && this.discardPile.length > 0 && this.findMatchCards(this.discardPile, data) != null) {
             let topCard = this.discardPile.pop();
             this.playerCards[playerIndex].push(topCard);
 
@@ -271,7 +280,7 @@ module.exports = class Lobby {
      * @param {Card} card -> the card that is discarded
      */
     discardCard(playerIndex, card) {
-        this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card),1);
+        this.playerCards[playerIndex].splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
         this.discardPile.push(card);
 
         this.sendData(this.sockets[playerIndex], {
@@ -292,7 +301,7 @@ module.exports = class Lobby {
     /**
      * This function is used to meld cards either by suit or rank
      * @param {number} playerIndex -> the current player that is doing a meld
-     * @param {*} meld -> the card(s) that is melded
+     * @param {*} meld -> the client provided meld
      */
     meldCards(playerIndex, meld) {
         // let nMeld = this.createNewMeld(this.playerCards[playerIndex],card);
@@ -302,55 +311,68 @@ module.exports = class Lobby {
         let validateMeld = (meld) => {
             if (meld.length != 3) return false;
             else return true;
-            //this.playerCards[playerIndex].indexOf(card), 1
-        }
+        };
+
         if (validateMeld(meld)) {
             this.sortDeck(meld);
 
             for (let card of meld) {
-                this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card), 1);
+                this.playerCards[playerIndex]
+                .splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
             }
+            //assign id to a meld
+            let meldId = this.numberOfMelds;
+            this.numberOfMelds++;
+
             this.melds.push(meld);
 
             this.sendData(this.sockets[playerIndex],
                 {
                     cmd: 'newmeld',
                     player: 'me',
-                    meld: meld
+                    meld: meld,
+                    meldId: meldId
                 });
             this.sendData(this.sockets[playerIndex ^ 1],
                 {
                     cmd: 'newmeld',
                     player: 'op',
-                    meld: meld
+                    meld: meld,
+                    meldId: meldId
                 });
         }
-        //Check if the card can be added to a meld
-        else {
-            let meld = this.addToExistingMeld(card);
 
-            if (meld.index >= 0) {
-                this.playerCards[playerIndex].splice(this.playerCards[playerIndex].indexOf(card),1);
-                this.melds[meld.index] = meld.meld;
+    }
+    /**
+    * This function is used to add a card from current player's cards into a meld
+    * @param {int} playerIndex -> index of the player doing the adding
+    * @param {Card} card -> the card that needs to be add to a meld
+    * @param {int} meldId -> the card that needs to be add to a meld
+    */
+    addCardToMeld(playerIndex, card, meldId) {
+        let meldWithAddedCard = this.addToExistingMeld(card, meldId);
+        // let meld = this.melds[meldId];
 
-                this.sendData(this.sockets[playerIndex], {
-                    cmd: 'addmeld',
-                    player: 'me',
-                    index: meld.index,
-                    card: card,
-                    meld: meld.meld
-                });
-                this.sendData(this.sockets[playerIndex ^ 1], {
-                    cmd: 'addmeld',
-                    player: 'op',
-                    index: meld.index,
-                    card: card,
-                    meld: meld.meld
-                });
-            }
+        if (meldWithAddedCard != null) {
+            this.playerCards[playerIndex].splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
+            this.melds[meldId] = meldWithAddedCard;
+
+            this.sendData(this.sockets[playerIndex], {
+                cmd: 'addmeld',
+                player: 'me',
+                meldId: meldId,
+                card: card,
+                meld: meldWithAddedCard
+            });
+            this.sendData(this.sockets[playerIndex ^ 1], {
+                cmd: 'addmeld',
+                player: 'op',
+                meldId: meldId,
+                card: card,
+                meld: meldWithAddedCard
+            });
         }
     }
-
     /**
      * This function is used to create a new meld from current player's cards
      * @param {Card[]} cards -> a collection of player's card
@@ -358,7 +380,7 @@ module.exports = class Lobby {
      * @returns {Card[]} -> return a meld if the target card satisfies meld requirements
      */
     createNewMeld(cards, targetCard) {
-        let aCard = (deck,suit,value) => this.findMatchCardsByVal(deck,suit,value)!=null;
+        let aCard = (deck, suit, value) => this.findMatchCardsByVal(deck, suit, value) != null;
 
         let suitMeld = [targetCard];
 
@@ -366,19 +388,19 @@ module.exports = class Lobby {
         let index = targetCard.value;
         let lowerIndex = index - 1;
         let upperIndex = index + 1;
-        while(lowerIndex>=0 && aCard(cards,targetCard.suit,lowerIndex)) {
-            suitMeld.unshift(this.findMatchCards(cards,{suit:targetCard.suit, rank:this.cardRanks[lowerIndex]}));
+        while (lowerIndex >= 0 && aCard(cards, targetCard.suit, lowerIndex)) {
+            suitMeld.unshift(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[lowerIndex] }));
             lowerIndex--;
         }
-        while(upperIndex<this.cardRanks.length && aCard(cards,targetCard.suit,upperIndex)) {
-            suitMeld.push(this.findMatchCards(cards,{suit:targetCard.suit,rank:this.cardRanks[upperIndex]}));
+        while (upperIndex < this.cardRanks.length && aCard(cards, targetCard.suit, upperIndex)) {
+            suitMeld.push(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[upperIndex] }));
             upperIndex++;
         }
 
         //If the card is an Ace, try switching its value
         if (targetCard.value == 0) {
             targetCard.value = 14;
-            let aMeld = this.createNewMeld(cards,targetCard);
+            let aMeld = this.createNewMeld(cards, targetCard);
             if (aMeld.length > suitMeld.length) {
                 suitMeld = aMeld;
             }
@@ -404,7 +426,7 @@ module.exports = class Lobby {
      */
     findMatchCardsByVal(cards, suit, value) {
         for (let card of cards) {
-            if (card.suit==suit && card.value==value) {
+            if (card.suit == suit && card.value == value) {
                 return card;
             }
         }
@@ -417,9 +439,9 @@ module.exports = class Lobby {
      * @returns {} -> based on rank value or suit
      */
     sortDeck(deck) {
-        deck.sort( (m,n) => {
-            if (m.rank != n.rank) {
-                return m.value - n.value;
+        deck.sort((m, n) => {
+            if (m.suit == n.suit) {
+                return n.value - m.value ;//sort desc
             }
             else {
                 return m.suit - n.suit;
@@ -432,56 +454,45 @@ module.exports = class Lobby {
      * @param {Card} targetCard -> the card to be added to an existing meld
      * @returns {Object} -> returns the index of the meld and the new meld
      */
-    addToExistingMeld(targetCard) {
-        let index = targetCard.value;
-        let l = 0;
+    addToExistingMeld(targetCard, meldId) {
+        let targetCardRank = targetCard.rank;
+        // let l = 0;
 
-        while (l < this.melds.length) {
-            let meld = this.melds[l].slice(0);
+        // while (l < this.melds.length) {
+        let meld = this.melds[meldId].slice(0);
 
-            //Meld with the same suit
-            if (meld[0].rank != meld[meld.length-1].rank) {
-                if (meld[0].suit == targetCard.suit) {
-                    let firstRankIndex = meld[0].value;
-                    let lastRankIndex = meld[meld.length-1].value;
+        //Meld with the same suit
+        if (meld[0].rank != meld[meld.length - 1].rank) {
+            if (meld[0].suit == targetCard.suit) {
 
-                    //Add to the front
-                    if ((firstRankIndex-1) == index) {
-                        meld.unshift(targetCard);
-                        return {
-                            index: 1,
-                            meld: meld
-                        };
-                    }
-                    //Add to the back
-                    else if ((lastRankIndex + 1) == index) {
-                        meld.push(targetCard);
-                        return {
-                            index: l,
-                            meld: meld
-                        };
-                    }
+                //Add to the front
+                if ((meld[0].rank + 1) == targetCardRank) {
+                    meld.unshift(targetCard);
+                    return meld;
+                }
+                //Add to the back
+                else if ((meld[meld.length - 1].rank - 1) == targetCardRank) {
+                    meld.push(targetCard);
+                    return meld;
                 }
             }
-            //Meld with the same rank
-            else if (meld[0].rank == targetCard.rank) {
-                meld.push(targetCard);
-                this.sortDeck(meld);
-                return {
-                    index: l,
-                    meld: meld
-                };
-            }
-            l++;
         }
+        //Meld with the same rank
+        else if (meld[0].rank == targetCard.rank) {
+            meld.push(targetCard);
+            this.sortDeck(meld);
+            return meld;
+        }
+        // l++;
+        // }
 
         // If the card is an Ace, try switching its value to match existing meld
-        if(targetCard.value == 0) {
-            targetCard.value = 14;
-            return this.addToExistingMeld(targetCard);
-        }
+        // if (targetCard.value == 0) {
+        //     targetCard.value = 14;
+        //     return this.addToExistingMeld(targetCard);
+        // }
 
-        return {index: -1};
+        return null;
     }
 
     /**
@@ -493,9 +504,9 @@ module.exports = class Lobby {
             if (this.playerCards[l].length == 0) {
                 this.sendData(this.sockets[l], {
                     cmd: 'win',
-                    score: this.calcScore(this.playerCards[l^1])
+                    score: this.calcScore(this.playerCards[l ^ 1])
                 });
-                this.sendData(this.sockets[l^1],{cmd: 'loss'});
+                this.sendData(this.sockets[l ^ 1], { cmd: 'loss' });
                 this.selfDestruct();
                 break;
             }
@@ -515,13 +526,13 @@ module.exports = class Lobby {
             if (card.rank == 1) {
                 total += 1;
             }
-            else if (card.rank==11 || card.rank==12 || card.rank==13) {
+            else if (card.rank == 11 || card.rank == 12 || card.rank == 13) {
                 total += 10;
             }
             else {
-                total += card.value+1;
+                total += card.value + 1;
             }
         }
         return total;
     }
-}
+};
