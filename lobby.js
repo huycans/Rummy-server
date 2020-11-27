@@ -62,6 +62,7 @@ module.exports = class Lobby {
             //     });
             // }
         }
+        //TODO: reenable this
         //Loop for shuffling cards
         // let l = cards.length - 1;
         // while (l > 0) {
@@ -95,6 +96,7 @@ module.exports = class Lobby {
         this.checkPlayers();
 
         if (data.cmd == 'join') {
+            webSocket.userToken = data.userToken;
             this.joinProcess(webSocket);
         }
         // else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
@@ -189,7 +191,27 @@ module.exports = class Lobby {
             this.sendData(webSocket, { cmd: 'exit' });
         }
         else {
-            //if client is not in the lobby
+            //loop through the sockets/client connections
+            for (let i = 0; i < this.sockets.length; i++) {
+                if (this.sockets[i] != null && this.sockets[i].userToken == webSocket.userToken) {
+                    //a user is rejoining the game
+                    //reset client's websocket
+                    this.sockets[i] = webSocket;
+                    //Resend copy of current deck and layout to client
+                    this.sendData(webSocket, {
+                        cmd: 'cards',
+                        cards: this.playerCards[this.sockets.indexOf(webSocket)],
+                        opcards: this.playerCards[this.sockets.indexOf(webSocket) ^ 1].length,
+                        deck: this.deck.length,
+                        melds: this.melds,
+                        discardPile: this.discardPile,
+                        myturn: this.sockets.indexOf(webSocket) == this.turn
+                    });
+                    return;
+                }
+            }
+
+            //a new client is joining
             if (this.sockets.indexOf(webSocket) == -1) {
                 //Add client to the game lobby
                 this.sockets[this.sockets.indexOf(null)] = webSocket;
@@ -297,7 +319,6 @@ module.exports = class Lobby {
         this.turn ^= 1;
     }
 
-    //TODO: rewrite this. the server do not create a meld automatically
     /**
      * This function is used to meld cards either by suit or rank
      * @param {number} playerIndex -> the current player that is doing a meld

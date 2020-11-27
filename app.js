@@ -19,6 +19,7 @@ var userRouter = require('./routes/users');
 var config = require("./config");
 // const gameRouter = require("./routes/game");
 var cors = require("./routes/cors");
+var { verifyUser } = require("./authenticate")
 
 var app = express();
 
@@ -78,7 +79,7 @@ app
   .options(cors.corsWithOptions, (req, res) => {
     res.sendStatus(200);
   })
-.get((req, res) => {
+  .get(verifyUser, (req, res) => {
   let code = req.params.lobby;
   if (rummy.addLobby(code)) {
     // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
