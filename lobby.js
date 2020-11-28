@@ -56,12 +56,12 @@ module.exports = class Lobby {
         }
         //TODO: reenable this
         //Loop for shuffling cards
-        // let l = cards.length - 1;
-        // while (l > 0) {
-        //     const n = Math.floor(Math.random() * (l + 1));
-        //     [cards[l], cards[n]] = [cards[n], cards[l]];
-        //     l--;
-        // }
+        let l = cards.length - 1;
+        while (l > 0) {
+            const n = Math.floor(Math.random() * (l + 1));
+            [cards[l], cards[n]] = [cards[n], cards[l]];
+            l--;
+        }
 
         this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
