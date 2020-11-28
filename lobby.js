@@ -52,14 +52,7 @@ module.exports = class Lobby {
                 });
                 i++;
             }
-            // for (let face of ['A', 'J', 'Q', 'K']) {
-            //     cards.push({
-            //             html: `.card._${face}.${suit}`,
-            //             suit: suit,
-            //             rank: face,
-            //             value: this.cardRanks.indexOf(face)
-            //     });
-            // }
+
         }
         //TODO: reenable this
         //Loop for shuffling cards
@@ -530,18 +523,25 @@ module.exports = class Lobby {
     }
 
     /**
-     * This function is used to check whether a player win or loss
+     * This function is used to check whether a player win or lose
      */
     checkWinner() {
         let l = 0;
         while (l < this.playerCards.length) {
             if (this.playerCards[l].length == 0) {
+                let winnerScore = this.calcScore(this.playerCards[l ^ 1])
                 this.sendData(this.sockets[l], {
                     cmd: 'win',
-                    score: this.calcScore(this.playerCards[l ^ 1])
+                    score: winnerScore
                 });
-                this.sendData(this.sockets[l ^ 1], { cmd: 'loss' });
-                this.selfDestruct();
+                this.sendData(this.sockets[l ^ 1], { 
+                    cmd: 'loss', 
+                    score: winnerScore 
+                });
+                //destroy the lobby in 5 secs
+                setTimeout(() => {
+                    this.selfDestruct();
+                }, 1000); 
                 break;
             }
             l++;
@@ -557,15 +557,10 @@ module.exports = class Lobby {
         let total = 0;
 
         for (let card of cards) {
-            if (card.rank == 1) {
-                total += 1;
-            }
-            else if (card.rank == 11 || card.rank == 12 || card.rank == 13) {
+            if (card.rank == 11 || card.rank == 12 || card.rank == 13) {
                 total += 10;
             }
-            else {
-                total += card.value + 1;
-            }
+            else total += card.rank
         }
         return total;
     }
