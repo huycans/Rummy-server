@@ -1,5 +1,4 @@
 const crypt = require("crypto");
-const { deflateRaw } = require("zlib");
 
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
@@ -21,10 +20,10 @@ module.exports = class Lobby {
 
         //sockets represents players
         this.sockets = [null, null];
-        //the lobby is waiting for new player/has only one player
+        //the lobby is waiting for new player
         this.isWaiting = true;
-        //when the player is choosing/drawing a card
-        this.choosePhase = true;
+        //if true, the player is drawing a card; if false, the player is discarding a card
+        this.drawPhase = true;
         //either 1 or 0, depends on this.sockets's index
         this.turn = 0;
 
@@ -79,6 +78,17 @@ module.exports = class Lobby {
     }
 
     /**
+    * Check whether a userToken is in one of the preexisting connections
+    * @param {string} userToken -> the clients' auth token
+    * @return {Bool} 
+    */
+    checkUserToken(userToken){
+        for (let socket of this.sockets){
+            if (socket!=null && socket.userToken == userToken) return true;
+        }
+        return false;
+    }
+    /**
      * This is the main function for processing the clients' data while playing the game
      * @param {WebSocket} webSocket -> the clients' websocket
      * @param {Object} data -> the data received from clients 
@@ -104,7 +114,7 @@ module.exports = class Lobby {
             let playerIndex = this.sockets.indexOf(webSocket);
             if (data.cmd == 'draw') {
 
-                if (this.choosePhase) {
+                if (this.drawPhase) {
                     this.cardChoosing(playerIndex, data);
                 }
             }
@@ -186,8 +196,12 @@ module.exports = class Lobby {
      * @param {WebSocket} webSocket -> the client's socket
      */
     joinProcess(webSocket) {
-        //Game lobby is already full
-        if (this.sockets.indexOf(null) == -1 || !this.isWaiting) {
+        //(If Game lobby is already full OR lobby is not empty) AND client is NOT rejoining (no preexisting token)
+        if ((this.sockets.indexOf(null) == -1|| !this.isWaiting )
+            && !this.checkUserToken(webSocket.userToken)
+            ) 
+        {
+            //do not allow client to join
             this.sendData(webSocket, { cmd: 'exit' });
         }
         else {
@@ -205,7 +219,8 @@ module.exports = class Lobby {
                         deck: this.deck.length,
                         melds: this.melds,
                         discardPile: this.discardPile,
-                        myturn: this.sockets.indexOf(webSocket) == this.turn
+                        myturn: this.sockets.indexOf(webSocket) == this.turn,
+                        drawPhase: this.drawPhase
                     });
                     return;
                 }
@@ -215,6 +230,7 @@ module.exports = class Lobby {
             if (this.sockets.indexOf(webSocket) == -1) {
                 //Add client to the game lobby
                 this.sockets[this.sockets.indexOf(null)] = webSocket;
+
                 if (this.sockets.indexOf(null) == -1) {
                     this.isWaiting = false;
                 }
@@ -228,7 +244,8 @@ module.exports = class Lobby {
                 deck: this.deck.length,
                 melds: this.melds,
                 discardPile: this.discardPile,
-                myturn: this.sockets.indexOf(webSocket) == this.turn
+                myturn: this.sockets.indexOf(webSocket) == this.turn,
+                drawPhase: this.drawPhase
             });
         }
     }
@@ -239,10 +256,6 @@ module.exports = class Lobby {
      * @param {object} data -> the data that is associated with the choosing process
      */
     cardChoosing(playerIndex, data) {
-        // {sent from client
-        //     cmd: draw,
-        //     from: deck/discardPile
-        // }
         //Draw card from deck
         if (data.from == 'deck' && this.deck.length > 0) {
             let topCard = this.deck.pop();
@@ -259,7 +272,7 @@ module.exports = class Lobby {
                 from: 'deck',
                 player: 'op'
             });
-            this.choosePhase = false;
+            this.drawPhase = false;
         }
         //Draw card from pile
         else if (data.from == 'discardPile' && this.discardPile.length > 0 && this.findMatchCards(this.discardPile, data) != null) {
@@ -277,7 +290,7 @@ module.exports = class Lobby {
                 from: 'discardPile',
                 player: 'op'
             });
-            this.choosePhase = false;
+            this.drawPhase = false;
         }
     }
 
@@ -315,7 +328,7 @@ module.exports = class Lobby {
             player: 'op',
             card: card
         });
-        this.choosePhase = true;
+        this.drawPhase = true;
         this.turn ^= 1;
     }
 
@@ -462,7 +475,7 @@ module.exports = class Lobby {
     sortDeck(deck) {
         deck.sort((m, n) => {
             if (m.suit == n.suit) {
-                return n.value - m.value ;//sort desc
+                return m.value - n.value  ;//sort asc
             }
             else {
                 return m.suit - n.suit;
@@ -487,12 +500,12 @@ module.exports = class Lobby {
             if (meld[0].suit == targetCard.suit) {
 
                 //Add to the front
-                if ((meld[0].rank + 1) == targetCardRank) {
+                if ((meld[0].rank - 1) == targetCardRank) {
                     meld.unshift(targetCard);
                     return meld;
                 }
                 //Add to the back
-                else if ((meld[meld.length - 1].rank - 1) == targetCardRank) {
+                else if ((meld[meld.length - 1].rank + 1) == targetCardRank) {
                     meld.push(targetCard);
                     return meld;
                 }

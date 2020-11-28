@@ -80,12 +80,12 @@ app
     res.sendStatus(200);
   })
   .get(verifyUser, (req, res) => {
-  let code = req.params.lobby;
-  if (rummy.addLobby(code)) {
+  let lobbycode = req.params.lobby;
+    if (rummy.addLobby(lobbycode, req.headers.authorization.slice(7))) {
     // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
-    res.json({ message: "Lobby created successfully", token: rummy.lobbies[code].token });
+    res.json({ message: "Lobby created successfully", token: rummy.lobbies[lobbycode].token });
   } else {
     // res.redirect('/');
     console.log("Error creating lobby");

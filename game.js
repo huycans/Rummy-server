@@ -91,7 +91,7 @@ module.exports = class Game {
      * @param {string} code -> the lobby code
      * @returns {boolean} -> confirm whether the lobby has been added
      */
-    addLobby(code) {
+    addLobby(code, userToken) {
         let status = this.getLobbyStatus(code);
         if (status == 'waiting')
         {
@@ -104,7 +104,11 @@ module.exports = class Game {
             // console.log("List of lobbies", this.lobbies);
             return true;
         }
-        else {
+        else if (status == 'closed'){
+            //check if user has joined this lobby before
+            if (this.lobbies[code].checkUserToken(userToken)){
+                return true;
+            }
             return false;
         }
     }
