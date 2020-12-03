@@ -26,6 +26,8 @@ module.exports = class Lobby {
         this.drawPhase = true;
         //either 1 or 0, depends on this.sockets's index
         this.turn = 0;
+        //the deck of cards
+        this.deck = [];
 
         this.destruct = null;
         this.generateCards();
@@ -54,7 +56,7 @@ module.exports = class Lobby {
             }
 
         }
-        //TODO: reenable this
+        //TODO: make this secure
         //Loop for shuffling cards
         let l = cards.length - 1;
         while (l > 0) {
@@ -545,6 +547,21 @@ module.exports = class Lobby {
                 break;
             }
             l++;
+        }
+
+        //if the deck is out of cards
+        if (this.deck.length == 0){
+            //game is a draw
+            let l = 0;
+            this.sendData(this.sockets[l], {
+                cmd: 'gamedraw',
+            });
+            this.sendData(this.sockets[l ^ 1], {
+                cmd: 'gamedraw',
+            });
+            setTimeout(() => {
+                this.selfDestruct();
+            }, 1000);
         }
     }
 
