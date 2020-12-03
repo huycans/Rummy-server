@@ -340,7 +340,27 @@ module.exports = class Lobby {
         //TODO: validate meld
         let validateMeld = (meld) => {
             if (meld.length != 3) return false;
-            else return true;
+            else {
+                //make sure cards in meld exists in the player's hand
+                for (let card of meld){
+                    if (this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit) == -1 ){
+                        return false;
+                    }
+                }
+                //make sure cards in meld is valid
+                //three in a row, same suit
+                if (meld[0].suit == meld[1].suit && meld[1].suit == meld[2].suit) {
+                    if (Math.abs(meld[0].rank - meld[1].rank) == 1
+                        && Math.abs((meld[1].rank - meld[2].rank)) == 1) {
+                        return true;
+                    }
+                }
+                //or three of same rank, diff suit
+                else if ((meld[0].rank) == meld[1].rank && (meld[1].rank) == meld[2].rank) {
+                    return true;
+                }
+            }
+            return false;
         };
 
         if (validateMeld(meld)) {
@@ -409,43 +429,43 @@ module.exports = class Lobby {
      * @param {Card} targetCard -> the card that is targetted to form a meld
      * @returns {Card[]} -> return a meld if the target card satisfies meld requirements
      */
-    createNewMeld(cards, targetCard) {
-        let aCard = (deck, suit, value) => this.findMatchCardsByVal(deck, suit, value) != null;
+    // createNewMeld(cards, targetCard) {
+    //     let aCard = (deck, suit, value) => this.findMatchCardsByVal(deck, suit, value) != null;
 
-        let suitMeld = [targetCard];
+    //     let suitMeld = [targetCard];
 
-        //Loops to find the longest sequence for suit meld
-        let index = targetCard.value;
-        let lowerIndex = index - 1;
-        let upperIndex = index + 1;
-        while (lowerIndex >= 0 && aCard(cards, targetCard.suit, lowerIndex)) {
-            suitMeld.unshift(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[lowerIndex] }));
-            lowerIndex--;
-        }
-        while (upperIndex < this.cardRanks.length && aCard(cards, targetCard.suit, upperIndex)) {
-            suitMeld.push(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[upperIndex] }));
-            upperIndex++;
-        }
+    //     //Loops to find the longest sequence for suit meld
+    //     let index = targetCard.value;
+    //     let lowerIndex = index - 1;
+    //     let upperIndex = index + 1;
+    //     while (lowerIndex >= 0 && aCard(cards, targetCard.suit, lowerIndex)) {
+    //         suitMeld.unshift(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[lowerIndex] }));
+    //         lowerIndex--;
+    //     }
+    //     while (upperIndex < this.cardRanks.length && aCard(cards, targetCard.suit, upperIndex)) {
+    //         suitMeld.push(this.findMatchCards(cards, { suit: targetCard.suit, rank: this.cardRanks[upperIndex] }));
+    //         upperIndex++;
+    //     }
 
-        //If the card is an Ace, try switching its value
-        if (targetCard.value == 0) {
-            targetCard.value = 14;
-            let aMeld = this.createNewMeld(cards, targetCard);
-            if (aMeld.length > suitMeld.length) {
-                suitMeld = aMeld;
-            }
-        }
+    //     //If the card is an Ace, try switching its value
+    //     if (targetCard.value == 0) {
+    //         targetCard.value = 14;
+    //         let aMeld = this.createNewMeld(cards, targetCard);
+    //         if (aMeld.length > suitMeld.length) {
+    //             suitMeld = aMeld;
+    //         }
+    //     }
 
-        let rankMeld = cards.filter((card) => card.rank == targetCard.rank);
+    //     let rankMeld = cards.filter((card) => card.rank == targetCard.rank);
 
-        //Return a meld with the same rank or a sequence rank of cards
-        if (rankMeld.length > suitMeld.length) {
-            return rankMeld;
-        }
-        else {
-            return suitMeld;
-        }
-    }
+    //     //Return a meld with the same rank or a sequence rank of cards
+    //     if (rankMeld.length > suitMeld.length) {
+    //         return rankMeld;
+    //     }
+    //     else {
+    //         return suitMeld;
+    //     }
+    // }
 
     /**
      * This function is used to find card that matches a suit and a value
