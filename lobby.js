@@ -56,14 +56,15 @@ module.exports = class Lobby {
             }
 
         }
-        //TODO: make this secure
-        //Loop for shuffling cards
-        let l = cards.length - 1;
-        while (l > 0) {
-            const n = Math.floor(Math.random() * (l + 1));
-            [cards[l], cards[n]] = [cards[n], cards[l]];
-            l--;
+
+        //Durstenfeld shuffle algorithm
+        for (let i = cards.length - 1; i > 0; i--) {
+            //secure random number, divides 255 because it is 1 byte
+            var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255 ;
+            const j = Math.floor(rand * (i + 1));
+            [cards[i], cards[j]] = [cards[j], cards[i]];
         }
+
 
         this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
