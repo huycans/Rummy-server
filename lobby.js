@@ -54,9 +54,8 @@ module.exports = class Lobby {
                 });
                 i++;
             }
-
         }
-
+        
         //Durstenfeld shuffle algorithm
         for (let i = cards.length - 1; i > 0; i--) {
             //secure random number, divides 255 because it is 1 byte
@@ -64,7 +63,6 @@ module.exports = class Lobby {
             const j = Math.floor(rand * (i + 1));
             [cards[i], cards[j]] = [cards[j], cards[i]];
         }
-
 
         this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
@@ -109,7 +107,6 @@ module.exports = class Lobby {
         else if (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
             if (data.cmd == 'draw') {
-
                 if (this.drawPhase) {
                     this.cardChoosing(playerIndex, data);
                 }
@@ -118,17 +115,16 @@ module.exports = class Lobby {
                 if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3) {
                     this.meldCards(playerIndex, data.meld);
                 }
-                else if (data.cmd == "addmeld") {
+                else if (data.cmd == "addmeld" && data.meldId != null) {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data.card);
-                    this.addCardToMeld(playerIndex, card, data.meldId);
-                }
-                else {
-                    let card = this.findMatchCards(this.playerCards[playerIndex], data);
-
                     if (card != null) {
-                        if (data.cmd = "discard") {
-                            this.discardCard(playerIndex, card);
-                        }
+                        this.addCardToMeld(playerIndex, card, data.meldId);
+                    }
+                }
+                else if (data.cmd = "discard") {
+                    let card = this.findMatchCards(this.playerCards[playerIndex], data);
+                    if (card != null) {
+                        this.discardCard(playerIndex, card);
                         this.checkWinner();
                     }
                 }
@@ -334,10 +330,7 @@ module.exports = class Lobby {
      * @param {*} meld -> the client provided meld
      */
     meldCards(playerIndex, meld) {
-        // let nMeld = this.createNewMeld(this.playerCards[playerIndex],card);
-
-        //Create a new meld
-        //TODO: validate meld
+        //meld validation func
         let validateMeld = (meld) => {
             if (meld.length != 3) return false;
             else {
@@ -401,7 +394,6 @@ module.exports = class Lobby {
     */
     addCardToMeld(playerIndex, card, meldId) {
         let meldWithAddedCard = this.addToExistingMeld(card, meldId);
-        // let meld = this.melds[meldId];
 
         if (meldWithAddedCard != null) {
             this.playerCards[playerIndex].splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
@@ -505,10 +497,9 @@ module.exports = class Lobby {
      * @returns {Object} -> returns the index of the meld and the new meld
      */
     addToExistingMeld(targetCard, meldId) {
+        //add to meld validation is done here
         let targetCardRank = targetCard.rank;
-        // let l = 0;
 
-        // while (l < this.melds.length) {
         let meld = this.melds[meldId].slice(0);
 
         //Meld with the same suit
@@ -533,14 +524,6 @@ module.exports = class Lobby {
             this.sortDeck(meld);
             return meld;
         }
-        // l++;
-        // }
-
-        // If the card is an Ace, try switching its value to match existing meld
-        // if (targetCard.value == 0) {
-        //     targetCard.value = 14;
-        //     return this.addToExistingMeld(targetCard);
-        // }
 
         return null;
     }
