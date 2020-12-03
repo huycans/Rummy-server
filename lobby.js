@@ -55,7 +55,7 @@ module.exports = class Lobby {
                 i++;
             }
         }
-        
+
         //Durstenfeld shuffle algorithm
         for (let i = cards.length - 1; i > 0; i--) {
             //secure random number, divides 255 because it is 1 byte
@@ -103,7 +103,6 @@ module.exports = class Lobby {
             webSocket.userToken = data.userToken;
             this.joinProcess(webSocket);
         }
-        // else if (data.cmd == 'click' && this.sockets.indexOf(webSocket) == this.turn) {
         else if (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
             if (data.cmd == 'draw') {
