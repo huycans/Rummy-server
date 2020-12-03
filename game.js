@@ -21,16 +21,24 @@ module.exports = class Game {
                 cmd: 'connected'
             })
             ws.on('message', (message) => {
-                let data = JSON.parse(message);
-                if(data.cmd == 'status') {
+                try {
+                    let data = JSON.parse(message);
+                    if (data.cmd == 'status') {
+                        this.sendData(ws, {
+                            cmd: 'status',
+                            status: this.getLobbyStatus(data.lobby)
+                        });
+                    }
+                    else if (data.token && this.verifyData(data)) {
+                        this.lobbies[data.lobby].processingData(ws, data);
+                    }
+                } catch (error) {
                     this.sendData(ws, {
-                        cmd: 'status',
-                        status: this.getLobbyStatus(data.lobby)
+                        cmd: 'error',
+                        message: error.toString()
                     });
                 }
-                else if (data.token && this.verifyData(data)) {
-                    this.lobbies[data.lobby].processingData(ws,data);
-                }
+
             });
         });
     }
