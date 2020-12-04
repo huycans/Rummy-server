@@ -14,20 +14,44 @@ userRouter.use(bodyParser.json());
 
 const DEFAULT_ERROR = "HTTP 500. Unexpected error. Please try again";
 
-userRouter.get("/", cors.cors, (req, res, next) => {
-  res.statusCode = 200;
-  res.setHeader("Content-Type", "application/json");
-  res.json({ success: true, status: "getting users" });
-});
+// userRouter.get("/", cors.cors, (req, res, next) => {
+//   res.statusCode = 200;
+//   res.setHeader("Content-Type", "application/json");
+//   res.json({ success: true, status: "getting users" });
+// });
 
-userRouter.post("/signup", cors.cors, (req, res, next) => {
-  //TODO: username and pass validation
+// function to validate password and username
+const inputValidator = (req, res, next) => {
+  let { username, password } = req.body;
+  //username must be between 3 and 50 characters
+  if (username.length < 3 || username.length > 50) {
+    res.statusCode = 400;
+    res.setHeader("Content-Type", "application/json");
+    res.json({ message: "Username or password is invalid" });
+    return;
+  }
+  //Minimum 8 and maximum 20 characters, at least one uppercase letter, one lowercase letter, one number and one special character (@$!%*?&_)
+  let passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_])[A-Za-z\d@$!%*?&_]{8,20}$/;
+  if (!passwordRegex.test(password)) {
+    res.statusCode = 400;
+    res.setHeader("Content-Type", "application/json");
+    res.json({ message: "Username or password is invalid" });
+    return;
+  }
 
+  // Check queryParameters
+  // queryParameters.$or[0].username
+  return next();
+};
+
+userRouter.post("/signup", cors.cors, inputValidator, (req, res, next) => {
   Users.register(new Users({ username: req.body.username }), req.body.password, (err, user) => {
     if (err) {
       res.statusCode = 500;
       res.setHeader("Content-Type", "application/json");
-      res.json({ err: err});
+      res.json({ err: {
+        message: err.message
+      } });
     } else {
 
       //placeholder info
@@ -54,14 +78,14 @@ userRouter.post("/signup", cors.cors, (req, res, next) => {
   });
 });
 
-userRouter.post("/signin", cors.cors, (req, res, next) => {
+userRouter.post("/signin", cors.cors, inputValidator, (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     //if user doesn't exist, it does not count as an error, this info will be parsed in the info variable
     if (err) return next(err);
     if (!user) {
       res.statusCode = 401;
       res.setHeader("Content-Type", "application/json");
-      res.json({ success: false, status: "Login unsuccessful", err: info });
+      res.json({ success: false, status: "Signin unsuccessful", err: {message: info.message} });
       return;
     }
 
@@ -69,7 +93,7 @@ userRouter.post("/signin", cors.cors, (req, res, next) => {
       if (err) {
         res.statusCode = 401;
         res.setHeader("Content-Type", "application/json");
-        res.json({ success: false, status: "Login unsuccessful", err: "Could not log in user" });
+        res.json({ success: false, status: "Signin unsuccessful", err: "Could not sign user in" });
         return;
       }
       Users.findByIdAndUpdate(
@@ -83,7 +107,7 @@ userRouter.post("/signin", cors.cors, (req, res, next) => {
           if (user.hash) user.hash = undefined;
           res.statusCode = 200;
           res.setHeader("Content-Type", "application/json");
-          res.json({ success: true, token: token, user: user, status: "You are successfully login" });
+          res.json({ success: true, token: token, user: user, status: "You have successfully signed in." });
         });
 
     });

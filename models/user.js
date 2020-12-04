@@ -32,6 +32,7 @@ const userSchema = new Schema({
 userSchema.set('toJSON', {
   virtuals: true
 });
+
 userSchema.plugin(passportLocalMongoose);
 
 
