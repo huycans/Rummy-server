@@ -32,6 +32,8 @@ module.exports = class Lobby {
         this.turn = 0;
         //the deck of cards
         this.deck = [];
+        //the history of the game
+        this.history = [];//push {cmd: "", meld/card/}
 
         this.destruct = null;
         this.generateCards();
@@ -74,6 +76,14 @@ module.exports = class Lobby {
         this.discardPile = cards.splice(0, 1);
         this.deck = cards;
     }
+    /**
+     * Update the history array when players make moves
+     *
+     * @param {*} obj object contain similar info to what is sent to client
+     */
+    updateHistory(obj) {
+        this.history.push(obj);
+    }
 
     /**
     * Check whether a userToken is in one of the preexisting connections
@@ -115,7 +125,6 @@ module.exports = class Lobby {
         if (data.cmd == 'join') {
             webSocket.userToken = data.userToken;
             //create timeout flag
-            this.keepAlive(webSocket);
             this.joinProcess(webSocket, data);
         }
         else if (this.sockets.indexOf(webSocket) == this.turn) {
@@ -123,30 +132,24 @@ module.exports = class Lobby {
             if (data.cmd == 'draw') {
                 if (this.drawPhase) {
                     //reset timeout flag
-                    this.keepAlive(webSocket);
-                    this.cardChoosing(playerIndex, data);
+                    this.cardChoosing(playerIndex, data, webSocket);
                 }
             }
             else {
                 if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3) {
                     //reset timeout flag
-                    this.keepAlive(webSocket);
-                    this.meldCards(playerIndex, data.meld);
+                    this.meldCards(playerIndex, data.meld, webSocket);
                 }
                 else if (data.cmd == "addmeld" && data.meldId != null) {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data.card);
                     if (card != null) {
-                        //reset timeout flag
-                        this.keepAlive(webSocket);
-                        this.addCardToMeld(playerIndex, card, data.meldId);
+                        this.addCardToMeld(playerIndex, card, data.meldId, webSocket);
                     }
                 }
                 else if (data.cmd == "discard") {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data);
                     if (card != null) {
-                        //reset timeout flag
-                        this.keepAlive(webSocket);
-                        this.discardCard(playerIndex, card);
+                        this.discardCard(playerIndex, card, webSocket);
                         this.checkWinner();
                     }
                 }
@@ -177,6 +180,8 @@ module.exports = class Lobby {
      * @returns {boolean} -> the result of whether data is sent or not
      */
     sendData(webSocket, data) {
+        //attach game history to data
+        data.history = this.history;
         if (webSocket != null) {
             try {
                 webSocket.send(JSON.stringify(data));
@@ -223,6 +228,7 @@ module.exports = class Lobby {
                         myturn: clientIndex == this.turn,
                         drawPhase: this.drawPhase
                     });
+                    this.keepAlive(webSocket);
 
                     this.setupTimeout(webSocket, clientIndex, this);
                     return;
@@ -253,6 +259,7 @@ module.exports = class Lobby {
                 myturn: clientIndex == this.turn,
                 drawPhase: this.drawPhase
             });
+            this.keepAlive(webSocket);
 
             this.setupTimeout(webSocket, clientIndex, this);
         }
@@ -295,12 +302,18 @@ module.exports = class Lobby {
      * @param {number} playerIndex -> to indicate the current player that is choosing
      * @param {object} data -> the data that is associated with the choosing process
      */
-    cardChoosing(playerIndex, data) {
+    cardChoosing(playerIndex, data, webSocket) {
         //Draw card from deck
         if (data.from == 'deck' && this.deck.length > 0) {
             let topCard = this.deck.pop();
             this.playerCards[playerIndex].push(topCard);
 
+            this.updateHistory({
+                cmd: 'draw',
+                from: 'deck',
+                player: this.turn,
+                card: topCard
+            });
             this.sendData(this.sockets[playerIndex], {
                 cmd: 'draw',
                 from: 'deck',
@@ -313,11 +326,19 @@ module.exports = class Lobby {
                 player: 'op'
             });
             this.drawPhase = false;
+            this.keepAlive(webSocket);
         }
         //Draw card from pile
         else if (data.from == 'discardPile' && this.discardPile.length > 0 && this.findMatchCards(this.discardPile, data) != null) {
             let topCard = this.discardPile.pop();
             this.playerCards[playerIndex].push(topCard);
+            
+            this.updateHistory({
+                cmd: 'draw',
+                from: 'discardPile',
+                player: this.turn,
+                card: topCard
+            });
 
             this.sendData(this.sockets[playerIndex], {
                 cmd: 'draw',
@@ -331,6 +352,7 @@ module.exports = class Lobby {
                 player: 'op'
             });
             this.drawPhase = false;
+            this.keepAlive(webSocket);
         }
     }
 
@@ -354,10 +376,14 @@ module.exports = class Lobby {
      * @param {number} playerIndex -> the current player that is discarding a card
      * @param {Card} card -> the card that is discarded
      */
-    discardCard(playerIndex, card) {
+    discardCard(playerIndex, card, webSocket) {
         this.playerCards[playerIndex].splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
         this.discardPile.push(card);
-
+        this.updateHistory({
+            cmd: 'discard',
+            player: this.turn,
+            card: card
+        })
         this.sendData(this.sockets[playerIndex], {
             cmd: 'discard',
             player: 'me',
@@ -370,6 +396,7 @@ module.exports = class Lobby {
         });
         this.drawPhase = true;
         this.turn ^= 1;
+        this.keepAlive(webSocket);
     }
 
     /**
@@ -377,7 +404,7 @@ module.exports = class Lobby {
      * @param {number} playerIndex -> the current player that is doing a meld
      * @param {*} meld -> the client provided meld
      */
-    meldCards(playerIndex, meld) {
+    meldCards(playerIndex, meld, webSocket) {
         //meld validation func
         let validateMeld = (meld) => {
             if (meld.length != 3) return false;
@@ -417,6 +444,12 @@ module.exports = class Lobby {
 
             this.melds.push(meld);
 
+            this.updateHistory({
+                cmd: 'newmeld',
+                player: this.turn,
+                meld: meld
+            });
+
             this.sendData(this.sockets[playerIndex],
                 {
                     cmd: 'newmeld',
@@ -431,6 +464,7 @@ module.exports = class Lobby {
                     meld: meld,
                     meldId: meldId
                 });
+            this.keepAlive(webSocket);
         }
 
     }
@@ -440,13 +474,18 @@ module.exports = class Lobby {
     * @param {Card} card -> the card that needs to be add to a meld
     * @param {int} meldId -> the card that needs to be add to a meld
     */
-    addCardToMeld(playerIndex, card, meldId) {
+    addCardToMeld(playerIndex, card, meldId, webSocket) {
         let meldWithAddedCard = this.addToExistingMeld(card, meldId);
 
         if (meldWithAddedCard != null) {
             this.playerCards[playerIndex].splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
             this.melds[meldId] = meldWithAddedCard;
-
+            this.updateHistory({
+                cmd: 'addmeld',
+                player: this.turn,
+                card: card,
+                meld: meldWithAddedCard
+            })
             this.sendData(this.sockets[playerIndex], {
                 cmd: 'addmeld',
                 player: 'me',
@@ -461,6 +500,7 @@ module.exports = class Lobby {
                 card: card,
                 meld: meldWithAddedCard
             });
+            this.keepAlive(webSocket);
         }
     }
     /**
@@ -586,6 +626,11 @@ module.exports = class Lobby {
         if (forceWinner) {
             let winnerScore = this.calcScore(this.playerCards[forceWinner ^ 1]);
 
+            this.updateHistory({
+                cmd: 'win',
+                score: winnerScore,
+                player: forceWinner
+            });
             this.sendData(this.sockets[forceWinner], {
                 cmd: 'win',
                 score: winnerScore
@@ -624,6 +669,13 @@ module.exports = class Lobby {
             while (l < this.playerCards.length) {
                 if (this.playerCards[l].length == 0) {
                     let winnerScore = this.calcScore(this.playerCards[l ^ 1]);
+
+                    this.updateHistory({
+                        cmd: 'win',
+                        score: winnerScore,
+                        player: l
+                    });
+
                     this.sendData(this.sockets[l], {
                         cmd: 'win',
                         score: winnerScore
@@ -642,7 +694,7 @@ module.exports = class Lobby {
                     }, (err, doc) => {
 
                         //update loser's stats
-                            Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
+                        Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
                             $inc: {
                                 gamePlayed: 1,
                                 gameLost: 1
@@ -663,13 +715,17 @@ module.exports = class Lobby {
             if (this.deck.length == 0) {
                 //game is a draw
                 let l = 0;
+                this.updateHistory({
+                    cmd: 'gamedraw',
+                    player: l
+                });
                 this.sendData(this.sockets[l], {
                     cmd: 'gamedraw',
                 });
                 this.sendData(this.sockets[l ^ 1], {
                     cmd: 'gamedraw',
                 });
-                
+
                 Users.findByIdAndUpdate(this.sockets[l].userId, {
                     $inc: {
                         gamePlayed: 1,
