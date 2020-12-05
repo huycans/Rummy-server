@@ -1,4 +1,6 @@
 const crypt = require("crypto");
+const Users = require("./models/user");
+
 const TIMEOUT_ALIVE = 300 * 1000;
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
@@ -59,12 +61,12 @@ module.exports = class Lobby {
         }
 
         // Durstenfeld shuffle algorithm
-        for (let i = cards.length - 1; i > 0; i--) {
-            //secure random number, divides 255 because it is 1 byte
-            var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255;
-            const j = Math.floor(rand * (i + 1));
-            [cards[i], cards[j]] = [cards[j], cards[i]];
-        }
+        // for (let i = cards.length - 1; i > 0; i--) {
+        //     //secure random number, divides 255 because it is 1 byte
+        //     var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255;
+        //     const j = Math.floor(rand * (i + 1));
+        //     [cards[i], cards[j]] = [cards[j], cards[i]];
+        // }
 
         this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
@@ -90,7 +92,7 @@ module.exports = class Lobby {
      *
      * @param {*} websocket client websocket
      */
-    keepAlive(websocket) {  
+    keepAlive(websocket) {
         websocket.isAlive = true;
     }
     /**
@@ -114,7 +116,7 @@ module.exports = class Lobby {
             webSocket.userToken = data.userToken;
             //create timeout flag
             this.keepAlive(webSocket);
-            this.joinProcess(webSocket);
+            this.joinProcess(webSocket, data);
         }
         else if (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
@@ -190,9 +192,9 @@ module.exports = class Lobby {
     /**
      * This function is used to handle client(s) that are joining the game
      * @param {WebSocket} webSocket -> the client's socket
+     * @param {Object} data -> the client's data
      */
-    joinProcess(webSocket) {
-        let self = this;
+    joinProcess(webSocket, data) {
         //(If Game lobby is already full OR lobby is not empty) AND client is NOT rejoining (no preexisting token)
         if ((this.sockets.indexOf(null) == -1 || !this.isWaiting)
             && !this.checkUserToken(webSocket.userToken)
@@ -205,6 +207,8 @@ module.exports = class Lobby {
             for (let i = 0; i < this.sockets.length; i++) {
                 if (this.sockets[i] != null && this.sockets[i].userToken == webSocket.userToken) {
                     //a user is rejoining the game
+                    //copy old userId into new websocket object
+                    webSocket.userId = this.sockets[i].userId;
                     //reset client's websocket
                     this.sockets[i] = webSocket;
                     let clientIndex = this.sockets.indexOf(webSocket);
@@ -227,6 +231,8 @@ module.exports = class Lobby {
 
             //a new client is joining
             if (this.sockets.indexOf(webSocket) == -1) {
+                //add userId to webSocket
+                webSocket.userId = data.userId;
                 //Add client to the game lobby
                 this.sockets[this.sockets.indexOf(null)] = webSocket;
 
@@ -575,9 +581,11 @@ module.exports = class Lobby {
      * @param {Card} forceWinner -> the index of the winner
      */
     checkWinner(forceWinner = null) {
+        let self = this;
         //a player has timeout and lose by default, forceWinner is the winner
         if (forceWinner) {
             let winnerScore = this.calcScore(this.playerCards[forceWinner ^ 1]);
+
             this.sendData(this.sockets[forceWinner], {
                 cmd: 'win',
                 score: winnerScore
@@ -586,10 +594,29 @@ module.exports = class Lobby {
                 cmd: 'loss',
                 score: winnerScore
             });
-            //destroy the lobby in 5 secs
-            setTimeout(() => {
-                this.selfDestruct();
-            }, 1000);
+            //update winner's stats
+            Users.findByIdAndUpdate(this.sockets[forceWinner].userId, {
+                $inc: {
+                    gamePlayed: 1,
+                    gameWon: 1
+                }
+            }, (err, doc) => {
+
+                //update loser's stats
+                Users.findByIdAndUpdate(self.sockets[forceWinner].userId, {
+                    $inc: {
+                        gamePlayed: 1,
+                        gameLost: 1
+                    }
+                }, (err, doc) => {
+                    //destroy the lobby in 5 secs
+                    setTimeout(() => {
+                        this.selfDestruct();
+                    }, 1000);
+                });
+            });
+
+
             // break;
         }
         else {
@@ -605,10 +632,28 @@ module.exports = class Lobby {
                         cmd: 'loss',
                         score: winnerScore
                     });
-                    //destroy the lobby in 5 secs
-                    setTimeout(() => {
-                        this.selfDestruct();
-                    }, 1000);
+
+                    //update winner's stat
+                    Users.findByIdAndUpdate(this.sockets[l].userId, {
+                        $inc: {
+                            gamePlayed: 1,
+                            gameWon: 1
+                        }
+                    }, (err, doc) => {
+
+                        //update loser's stats
+                            Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
+                            $inc: {
+                                gamePlayed: 1,
+                                gameLost: 1
+                            }
+                        }, (err, doc) => {
+                            //destroy the lobby in 5 secs
+                            setTimeout(() => {
+                                this.selfDestruct();
+                            }, 1000);
+                        });
+                    });
                     break;
                 }
                 l++;
@@ -624,9 +669,25 @@ module.exports = class Lobby {
                 this.sendData(this.sockets[l ^ 1], {
                     cmd: 'gamedraw',
                 });
-                setTimeout(() => {
-                    this.selfDestruct();
-                }, 1000);
+                
+                Users.findByIdAndUpdate(this.sockets[l].userId, {
+                    $inc: {
+                        gamePlayed: 1,
+                        gameDraw: 1
+                    }
+                }, (err, doc) => {
+                    Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
+                        $inc: {
+                            gamePlayed: 1,
+                            gameDraw: 1
+                        }
+                    }, (err, doc) => {
+                        //destroy the lobby in 5 secs
+                        setTimeout(() => {
+                            this.selfDestruct();
+                        }, 1000);
+                    });
+                });
             }
         }
 
