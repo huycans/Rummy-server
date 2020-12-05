@@ -15,11 +15,14 @@ module.exports = class Game {
         this.webSocketSrv = webSocketSrv;
         this.lobbies = {};
 
-        webSocketSrv.on('connection', (ws,req) => {
+        webSocketSrv.on('connection', (ws, req) => {
             console.log("A client has connected.");
+
             this.sendData(ws, {
                 cmd: 'connected'
-            })
+            });
+
+            //handle client's message
             ws.on('message', (message) => {
                 try {
                     let data = JSON.parse(message);
@@ -33,13 +36,18 @@ module.exports = class Game {
                         this.lobbies[data.lobby].processingData(ws, data);
                     }
                 } catch (error) {
+                    // throw error;
+                    console.log("Error executing client command: ", error);
                     this.sendData(ws, {
                         cmd: 'error',
-                        message: error.toString()
+                        message: "Server cannot execute this command."
                     });
                 }
 
             });
+            ws.on("close", (message) =>{
+                console.log("Client closed connection.");
+            })
         });
     }
 

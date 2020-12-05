@@ -1,5 +1,5 @@
 const crypt = require("crypto");
-
+const TIMEOUT_ALIVE = 60 * 1000;
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
  */
@@ -20,6 +20,8 @@ module.exports = class Lobby {
 
         //sockets represents players
         this.sockets = [null, null];
+        //timeoutID represent id of setinterval funcs, use to check player's activity
+        this.timeoutID = [null, null];
         //the lobby is waiting for new player
         this.isWaiting = true;
         //if true, the player is drawing a card; if false, the player is discarding a card
@@ -56,10 +58,10 @@ module.exports = class Lobby {
             }
         }
 
-        //Durstenfeld shuffle algorithm
+        // Durstenfeld shuffle algorithm
         for (let i = cards.length - 1; i > 0; i--) {
             //secure random number, divides 255 because it is 1 byte
-            var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255 ;
+            var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255;
             const j = Math.floor(rand * (i + 1));
             [cards[i], cards[j]] = [cards[j], cards[i]];
         }
@@ -76,11 +78,20 @@ module.exports = class Lobby {
     * @param {string} userToken -> the clients' auth token
     * @return {Bool} 
     */
-    checkUserToken(userToken){
-        for (let socket of this.sockets){
-            if (socket!=null && socket.userToken == userToken) return true;
+    checkUserToken(userToken) {
+        for (let socket of this.sockets) {
+            if (socket != null && socket.userToken == userToken) return true;
         }
         return false;
+    }
+
+    /**
+     * Keep this websocket connection alive
+     *
+     * @param {*} websocket client websocket
+     */
+    keepAlive(websocket) {  
+        websocket.isAlive = true;
     }
     /**
      * This is the main function for processing the clients' data while playing the game
@@ -89,40 +100,50 @@ module.exports = class Lobby {
      */
     processingData(webSocket, data) {
         console.log("data from clients: ", data);
+
         //sanitize data.card.rank, which was converted into string cus JSON.parse
         if (data.card) {
             data.card.rank = parseInt(data.card.rank);
         }
         //Postpone selfDestruct
         clearTimeout(this.destruct);
+        //self destruct in 5 minutes if no user input
         this.destruct = setTimeout(() => { this.selfDestruct(); }, 300 * 1000);
-
-        this.checkPlayers();
 
         if (data.cmd == 'join') {
             webSocket.userToken = data.userToken;
+            //create timeout flag
+            keepAlive(webSocket);
             this.joinProcess(webSocket);
         }
         else if (this.sockets.indexOf(webSocket) == this.turn) {
             let playerIndex = this.sockets.indexOf(webSocket);
             if (data.cmd == 'draw') {
                 if (this.drawPhase) {
+                    //reset timeout flag
+                    keepAlive(webSocket);
                     this.cardChoosing(playerIndex, data);
                 }
             }
             else {
                 if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3) {
+                    //reset timeout flag
+                    keepAlive(webSocket);
                     this.meldCards(playerIndex, data.meld);
                 }
                 else if (data.cmd == "addmeld" && data.meldId != null) {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data.card);
                     if (card != null) {
+                        //reset timeout flag
+                        keepAlive(webSocket);
                         this.addCardToMeld(playerIndex, card, data.meldId);
                     }
                 }
                 else if (data.cmd = "discard") {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data);
                     if (card != null) {
+                        //reset timeout flag
+                        keepAlive(webSocket);
                         this.discardCard(playerIndex, card);
                         this.checkWinner();
                     }
@@ -141,26 +162,10 @@ module.exports = class Lobby {
                 socket.terminate();
             }
         }
-        this.game.delLobby(this.code);
-    }
-
-    /**
-     * This function is used to check the connection of the players
-     */
-    checkPlayers() {
-        let l = 0;
-        while (l < this.sockets.length) {
-            if (this.sockets[l] != null) {
-                try {
-                    this.sendData(this.sockets[l], { cmd: 'ping' });
-                }
-                catch (err) {
-                    this.isWaiting = true;
-                    this.sockets[l] = null;
-                }
-            }
-            l++;
+        for (let id of this.timeoutID) {
+            if (id) clearInterval(id);
         }
+        this.game.delLobby(this.code);
     }
 
     /**
@@ -187,11 +192,11 @@ module.exports = class Lobby {
      * @param {WebSocket} webSocket -> the client's socket
      */
     joinProcess(webSocket) {
+        let self = this;
         //(If Game lobby is already full OR lobby is not empty) AND client is NOT rejoining (no preexisting token)
-        if ((this.sockets.indexOf(null) == -1|| !this.isWaiting )
+        if ((this.sockets.indexOf(null) == -1 || !this.isWaiting)
             && !this.checkUserToken(webSocket.userToken)
-            ) 
-        {
+        ) {
             //do not allow client to join
             this.sendData(webSocket, { cmd: 'exit' });
         }
@@ -202,17 +207,20 @@ module.exports = class Lobby {
                     //a user is rejoining the game
                     //reset client's websocket
                     this.sockets[i] = webSocket;
+                    let clientIndex = this.sockets.indexOf(webSocket);
                     //Resend copy of current deck and layout to client
                     this.sendData(webSocket, {
                         cmd: 'cards',
-                        cards: this.playerCards[this.sockets.indexOf(webSocket)],
-                        opcards: this.playerCards[this.sockets.indexOf(webSocket) ^ 1].length,
+                        cards: this.playerCards[clientIndex],
+                        opcards: this.playerCards[clientIndex ^ 1].length,
                         deck: this.deck.length,
                         melds: this.melds,
                         discardPile: this.discardPile,
-                        myturn: this.sockets.indexOf(webSocket) == this.turn,
+                        myturn: clientIndex == this.turn,
                         drawPhase: this.drawPhase
                     });
+
+                    this.setupTimeout(webSocket, clientIndex, this);
                     return;
                 }
             }
@@ -227,18 +235,53 @@ module.exports = class Lobby {
                 }
             }
 
+            let clientIndex = this.sockets.indexOf(webSocket);
             //Send copy of current deck and layout to new client
             this.sendData(webSocket, {
                 cmd: 'cards',
-                cards: this.playerCards[this.sockets.indexOf(webSocket)],
-                opcards: this.playerCards[this.sockets.indexOf(webSocket) ^ 1].length,
+                cards: this.playerCards[clientIndex],
+                opcards: this.playerCards[clientIndex ^ 1].length,
                 deck: this.deck.length,
                 melds: this.melds,
                 discardPile: this.discardPile,
-                myturn: this.sockets.indexOf(webSocket) == this.turn,
+                myturn: clientIndex == this.turn,
                 drawPhase: this.drawPhase
             });
+
+            this.setupTimeout(webSocket, clientIndex, this);
         }
+    }
+
+
+    /**
+     *Setup timeout for each player. Check the status of the player every TIMEOUT_ALIVE seconds
+     *If he does not make a move after TIMEOUT_ALIVE seconds, he lose the game.
+     * @param {*} webSocket the client websocket
+     * @param {*} clientIndex the index of the client
+     * @param {*} lobby instance of lobby
+     */
+    setupTimeout(webSocket, clientIndex, lobby) {
+        let timeoutid = setInterval(() => {
+            if (webSocket.isAlive === false) {
+                clearInterval(lobby.timeoutID[clientIndex]);
+                //make the player lose
+                if (lobby.sockets.indexOf(null) == -1) {
+                    //only force a winner if there're 2 players in the lobby
+                    lobby.checkWinner(clientIndex ^ 1);
+                }
+                else {
+                    this.sendData(webSocket, {
+                        cmd: 'loss',
+                        score: 0
+                    });
+                }
+                setTimeout(() => {
+                    webSocket.terminate();
+                }, 2000);
+            }
+            webSocket.isAlive = false;
+        }, TIMEOUT_ALIVE);
+        lobby.timeoutID[clientIndex] = timeoutid;
     }
 
     /**
@@ -334,8 +377,8 @@ module.exports = class Lobby {
             if (meld.length != 3) return false;
             else {
                 //make sure cards in meld exists in the player's hand
-                for (let card of meld){
-                    if (this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit) == -1 ){
+                for (let card of meld) {
+                    if (this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit) == -1) {
                         return false;
                     }
                 }
@@ -360,7 +403,7 @@ module.exports = class Lobby {
 
             for (let card of meld) {
                 this.playerCards[playerIndex]
-                .splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
+                    .splice(this.playerCards[playerIndex].findIndex(cardVal => cardVal.rank == card.rank && cardVal.suit == card.suit), 1);
             }
             //assign id to a meld
             let meldId = this.numberOfMelds;
@@ -482,7 +525,7 @@ module.exports = class Lobby {
     sortDeck(deck) {
         deck.sort((m, n) => {
             if (m.suit == n.suit) {
-                return m.value - n.value  ;//sort asc
+                return m.value - n.value;//sort asc
             }
             else {
                 return m.suit - n.suit;
@@ -529,43 +572,64 @@ module.exports = class Lobby {
 
     /**
      * This function is used to check whether a player win or lose
+     * @param {Card} forceWinner -> the index of the winner
      */
-    checkWinner() {
-        let l = 0;
-        while (l < this.playerCards.length) {
-            if (this.playerCards[l].length == 0) {
-                let winnerScore = this.calcScore(this.playerCards[l ^ 1])
-                this.sendData(this.sockets[l], {
-                    cmd: 'win',
-                    score: winnerScore
-                });
-                this.sendData(this.sockets[l ^ 1], { 
-                    cmd: 'loss', 
-                    score: winnerScore 
-                });
-                //destroy the lobby in 5 secs
-                setTimeout(() => {
-                    this.selfDestruct();
-                }, 1000); 
-                break;
-            }
-            l++;
-        }
-
-        //if the deck is out of cards
-        if (this.deck.length == 0){
-            //game is a draw
-            let l = 0;
-            this.sendData(this.sockets[l], {
-                cmd: 'gamedraw',
+    checkWinner(forceWinner = null) {
+        //a player has timeout and lose by default, forceWinner is the winner
+        if (forceWinner) {
+            let winnerScore = this.calcScore(this.playerCards[forceWinner ^ 1]);
+            this.sendData(this.sockets[forceWinner], {
+                cmd: 'win',
+                score: winnerScore
             });
-            this.sendData(this.sockets[l ^ 1], {
-                cmd: 'gamedraw',
+            this.sendData(this.sockets[forceWinner ^ 1], {
+                cmd: 'loss',
+                score: winnerScore
             });
+            //destroy the lobby in 5 secs
             setTimeout(() => {
                 this.selfDestruct();
             }, 1000);
+            // break;
         }
+        else {
+            let l = 0;
+            while (l < this.playerCards.length) {
+                if (this.playerCards[l].length == 0) {
+                    let winnerScore = this.calcScore(this.playerCards[l ^ 1]);
+                    this.sendData(this.sockets[l], {
+                        cmd: 'win',
+                        score: winnerScore
+                    });
+                    this.sendData(this.sockets[l ^ 1], {
+                        cmd: 'loss',
+                        score: winnerScore
+                    });
+                    //destroy the lobby in 5 secs
+                    setTimeout(() => {
+                        this.selfDestruct();
+                    }, 1000);
+                    break;
+                }
+                l++;
+            }
+
+            //if the deck is out of cards
+            if (this.deck.length == 0) {
+                //game is a draw
+                let l = 0;
+                this.sendData(this.sockets[l], {
+                    cmd: 'gamedraw',
+                });
+                this.sendData(this.sockets[l ^ 1], {
+                    cmd: 'gamedraw',
+                });
+                setTimeout(() => {
+                    this.selfDestruct();
+                }, 1000);
+            }
+        }
+
     }
 
     /**
@@ -580,7 +644,7 @@ module.exports = class Lobby {
             if (card.rank == 11 || card.rank == 12 || card.rank == 13) {
                 total += 10;
             }
-            else total += card.rank
+            else total += card.rank;
         }
         return total;
     }
