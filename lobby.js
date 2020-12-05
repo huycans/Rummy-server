@@ -1,5 +1,5 @@
 const crypt = require("crypto");
-const TIMEOUT_ALIVE = 60 * 1000;
+const TIMEOUT_ALIVE = 300 * 1000;
 /**The Lobby Class is the main interface that handles interaction
  * between players and players' move to win the card game
  */
@@ -113,7 +113,7 @@ module.exports = class Lobby {
         if (data.cmd == 'join') {
             webSocket.userToken = data.userToken;
             //create timeout flag
-            keepAlive(webSocket);
+            this.keepAlive(webSocket);
             this.joinProcess(webSocket);
         }
         else if (this.sockets.indexOf(webSocket) == this.turn) {
@@ -121,21 +121,21 @@ module.exports = class Lobby {
             if (data.cmd == 'draw') {
                 if (this.drawPhase) {
                     //reset timeout flag
-                    keepAlive(webSocket);
+                    this.keepAlive(webSocket);
                     this.cardChoosing(playerIndex, data);
                 }
             }
             else {
                 if (data.cmd == 'newmeld' && data.meld != null && data.meld.length == 3) {
                     //reset timeout flag
-                    keepAlive(webSocket);
+                    this.keepAlive(webSocket);
                     this.meldCards(playerIndex, data.meld);
                 }
                 else if (data.cmd == "addmeld" && data.meldId != null) {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data.card);
                     if (card != null) {
                         //reset timeout flag
-                        keepAlive(webSocket);
+                        this.keepAlive(webSocket);
                         this.addCardToMeld(playerIndex, card, data.meldId);
                     }
                 }
@@ -143,7 +143,7 @@ module.exports = class Lobby {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data);
                     if (card != null) {
                         //reset timeout flag
-                        keepAlive(webSocket);
+                        this.keepAlive(webSocket);
                         this.discardCard(playerIndex, card);
                         this.checkWinner();
                     }

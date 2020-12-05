@@ -66,7 +66,7 @@ module.exports = class Game {
      * @returns {string} -> returns the status of the game lobby
      */
     getLobbyStatus(code) {
-        if(/^\w{5,12}$/.test(code)) {
+        if (/^[a-zA-Z0-9]{5,12}$/.test(code)) {
             let lobby = this.lobbies[code];
 
             if(lobby) {

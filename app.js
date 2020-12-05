@@ -19,7 +19,7 @@ var userRouter = require('./routes/users');
 var config = require("./config");
 // const gameRouter = require("./routes/game");
 var cors = require("./routes/cors");
-var { verifyUser } = require("./authenticate")
+var { verifyUser } = require("./authenticate");
 
 var app = express();
 
@@ -66,7 +66,7 @@ wss.on('close', () => console.log('*disconnected*'));
 app.use('/welcome', welcomeRouter);
 app.use('/user', userRouter);
 
-
+let lobbycodeRegex = /^[a-zA-Z0-9]{5,12}$/;
 
 //path to game
 app
@@ -75,19 +75,20 @@ app
     res.sendStatus(200);
   })
   .get(verifyUser, (req, res) => {
-  let lobbycode = req.params.lobby;
-    if (rummy.addLobby(lobbycode, req.headers.authorization.slice(7))) {
-    // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
-    res.setHeader("Content-Type", "application/json");
-    res.statusCode = 200;
-    res.json({ message: "Lobby created successfully", token: rummy.lobbies[lobbycode].token });
-  } else {
-    // res.redirect('/');
-    console.log("Error creating or joining lobby");
-    res.statusCode = 500;
-    res.json({ message: "Lobby is full or unavailable" });
-  }
-});
+    let lobbycode = decodeURIComponent(req.params.lobby);
+    //make sure lobby code is alphanumerics only, then add
+    if (lobbycodeRegex.test(lobbycode) && rummy.addLobby(lobbycode, req.headers.authorization.slice(7))) {
+      // res.redirect('/game/' + req.params.lobby + '/' + rummy.lobbies[code].token);
+      res.setHeader("Content-Type", "application/json");
+      res.statusCode = 200;
+      res.json({ message: "Lobby created successfully", token: rummy.lobbies[lobbycode].token });
+    } else {
+      // res.redirect('/');
+      console.log("Error creating or joining lobby");
+      res.statusCode = 500;
+      res.json({ message: "Lobby is full, unavailable, or room code is invalid." });
+    }
+  });
 
 // app.get('/play/:lobby/:token', cors.cors, (req, res) => {
 //   let code = "" + req.params.lobby,
@@ -106,12 +107,12 @@ app.get('*', function (req, res) {
 });
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
