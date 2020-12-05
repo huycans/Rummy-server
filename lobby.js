@@ -139,7 +139,7 @@ module.exports = class Lobby {
                         this.addCardToMeld(playerIndex, card, data.meldId);
                     }
                 }
-                else if (data.cmd = "discard") {
+                else if (data.cmd == "discard") {
                     let card = this.findMatchCards(this.playerCards[playerIndex], data);
                     if (card != null) {
                         //reset timeout flag

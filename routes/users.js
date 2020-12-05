@@ -23,19 +23,15 @@ const DEFAULT_ERROR = "HTTP 500. Unexpected error. Please try again";
 // function to validate password and username
 const inputValidator = (req, res, next) => {
   let { username, password } = req.body;
-  //username must be between 3 and 50 characters
-  if (username.length < 3 || username.length > 50) {
-    res.statusCode = 400;
-    res.setHeader("Content-Type", "application/json");
-    res.json({ message: "Username or password is invalid" });
-    return;
-  }
-  //Minimum 8 and maximum 20 characters, at least one uppercase letter, one lowercase letter, one number and one special character (@$!%*?&_)
+  let usernameRegex = /^[A-Za-z\d@._]{3,50}$/;
+  //username must be between 3 and 50 alphanumeric characters or @._
+
+  //Password: Minimum 8 and maximum 20 characters, at least one uppercase letter, one lowercase letter, one number and one special character (@$!%*?&_)
   let passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_])[A-Za-z\d@$!%*?&_]{8,20}$/;
-  if (!passwordRegex.test(password)) {
+  if (!usernameRegex.test(username) || !passwordRegex.test(password)) {
     res.statusCode = 400;
     res.setHeader("Content-Type", "application/json");
-    res.json({ message: "Username or password is invalid" });
+    res.json({ err: {message: "Username or password is invalid"} });
     return;
   }
 
@@ -61,7 +57,7 @@ userRouter.post("/signup", cors.cors, inputValidator, (req, res, next) => {
         if (err) {
           res.statusCode = 500;
           res.setHeader("Content-Type", "application/json");
-          res.json({ err: err });
+          res.json({ err: {message: err} });
           return;
         }
         var token = authenticate.getToken({ _id: user._id });
@@ -93,7 +89,7 @@ userRouter.post("/signin", cors.cors, inputValidator, (req, res, next) => {
       if (err) {
         res.statusCode = 401;
         res.setHeader("Content-Type", "application/json");
-        res.json({ success: false, status: "Signin unsuccessful", err: "Could not sign user in" });
+        res.json({ success: false, status: "Signin unsuccessful", err: { message: "Could not sign user in" } });
         return;
       }
       Users.findByIdAndUpdate(
