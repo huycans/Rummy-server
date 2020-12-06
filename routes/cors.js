@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-const whitelist = ["http://localhost:3000","http://localhost:3001"];
+const whitelist = process.env.WHITELIST || ["https://localhost:3000"];
 var corsOptionDelegate = (req, callback) => {
   var corsOptions;
   if (whitelist.indexOf(req.header("Origin")) !== -1) {

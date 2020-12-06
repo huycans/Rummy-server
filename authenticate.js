@@ -4,6 +4,8 @@ var User = require("./models/user");
 var JwtStrategy = require("passport-jwt").Strategy;
 var ExtractJwt = require("passport-jwt").ExtractJwt;
 var jwt = require("jsonwebtoken");
+var fs = require("fs");
+var path = require("path");
 // var FacebookTokenStrategy = require("passport-facebook-token");
 
 var config = require("./config");
@@ -12,14 +14,15 @@ exports.local = passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
+var privateKey = fs.readFileSync(path.win32.resolve(__dirname,"./secret/server.key"));
 exports.getToken = function(user) {
-  return jwt.sign(user, config.secretKey, { expiresIn: 7200 });//expires in 2 hours
+  return jwt.sign(user, privateKey, { expiresIn: 7200});//expires in 2 hours
 };
 
 var opts = {};
 //jwtFromRequest: how the jsonwebtoken should be extracted from the incoming request message
 opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
-opts.secretOrKey = config.secretKey;
+opts.secretOrKey = privateKey;
 
 exports.jwtPassport = passport.use(
   new JwtStrategy(opts, (jwt_payload, done) => {
