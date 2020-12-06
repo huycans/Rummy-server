@@ -14,12 +14,6 @@ userRouter.use(bodyParser.json());
 
 const DEFAULT_ERROR = "HTTP 500. Unexpected error. Please try again";
 
-// userRouter.get("/", cors.cors, (req, res, next) => {
-//   res.statusCode = 200;
-//   res.setHeader("Content-Type", "application/json");
-//   res.json({ success: true, status: "getting users" });
-// });
-
 // function to validate password and username
 const inputValidator = (req, res, next) => {
   let { username, password } = req.body;

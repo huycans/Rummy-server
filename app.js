@@ -90,15 +90,6 @@ app
     }
   });
 
-// app.get('/play/:lobby/:token', cors.cors, (req, res) => {
-//   let code = "" + req.params.lobby,
-//     token = req.params.token;
-//   if (req.params.token && rummy.lobbies[code] && rummy.lobbies[code].token == token) {
-//     res.sendFile(__dirname + '/public/game.html');
-//   } else {
-//     res.redirect('/');
-//   }
-// });
 
 //serve static files from frontend, if they exist
 app.use(express.static(path.join(__dirname, 'build')));

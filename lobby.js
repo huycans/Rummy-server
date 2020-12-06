@@ -63,12 +63,12 @@ module.exports = class Lobby {
         }
 
         // Durstenfeld shuffle algorithm
-        // for (let i = cards.length - 1; i > 0; i--) {
-        //     //secure random number, divides 255 because it is 1 byte
-        //     var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255;
-        //     const j = Math.floor(rand * (i + 1));
-        //     [cards[i], cards[j]] = [cards[j], cards[i]];
-        // }
+        for (let i = cards.length - 1; i > 0; i--) {
+            //secure random number, divides 255 because it is 1 byte
+            var rand = parseInt(crypt.randomBytes(1).toString('hex'), 16) / 255;
+            const j = Math.floor(rand * (i + 1));
+            [cards[i], cards[j]] = [cards[j], cards[i]];
+        }
 
         this.playerCards = [cards.splice(0, 10), cards.splice(0, 10)];
         this.melds = [];
