@@ -7,18 +7,15 @@ var mongoose = require("mongoose");
 var passport = require("passport");
 var https = require('https');
 var fs = require('fs');
-var path = require('path');
 const WebSocket = require('ws');
 const Game = require('./game');
-// var app = require("./app")
+
 var debug = require('debug')('swe681:server');
 
-
-var welcomeRouter = require('./routes/welcome');
 var userRouter = require('./routes/users');
-var config = require("./config");
-// const gameRouter = require("./routes/game");
 var cors = require("./routes/cors");
+
+var config = require("./config");
 var { verifyUser } = require("./authenticate");
 
 var app = express();
@@ -63,7 +60,6 @@ wss.on('error', () => console.log('*errored*'));
 wss.on('close', () => console.log('*disconnected*'));
 
 //API paths on the server
-app.use('/welcome', welcomeRouter);
 app.use('/user', userRouter);
 
 let lobbycodeRegex = /^[a-zA-Z0-9]{5,12}$/;
