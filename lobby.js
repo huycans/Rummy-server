@@ -644,6 +644,9 @@ module.exports = class Lobby {
                 $inc: {
                     gamePlayed: 1,
                     gameWon: 1
+                },
+                $push: {
+                    gameHistory: JSON.stringify(this.history)
                 }
             }, (err, doc) => {
 
@@ -652,6 +655,9 @@ module.exports = class Lobby {
                     $inc: {
                         gamePlayed: 1,
                         gameLost: 1
+                    },
+                    $push: {
+                        gameHistory: JSON.stringify(self.history)
                     }
                 }, (err, doc) => {
                     //destroy the lobby in 5 secs
@@ -660,9 +666,6 @@ module.exports = class Lobby {
                     }, 1000);
                 });
             });
-
-
-            // break;
         }
         else {
             let l = 0;
@@ -690,6 +693,9 @@ module.exports = class Lobby {
                         $inc: {
                             gamePlayed: 1,
                             gameWon: 1
+                        },
+                        $push: {
+                            gameHistory: JSON.stringify(this.history)
                         }
                     }, (err, doc) => {
 
@@ -698,6 +704,9 @@ module.exports = class Lobby {
                             $inc: {
                                 gamePlayed: 1,
                                 gameLost: 1
+                            },
+                            $push: {
+                                gameHistory: JSON.stringify(self.history)
                             }
                         }, (err, doc) => {
                             //destroy the lobby in 5 secs
@@ -730,12 +739,18 @@ module.exports = class Lobby {
                     $inc: {
                         gamePlayed: 1,
                         gameDraw: 1
+                    },
+                    $push: {
+                        gameHistory: JSON.stringify(this.history)
                     }
                 }, (err, doc) => {
                     Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
                         $inc: {
                             gamePlayed: 1,
                             gameDraw: 1
+                        },
+                        $push: {
+                            gameHistory: JSON.stringify(self.history)
                         }
                     }, (err, doc) => {
                         //destroy the lobby in 5 secs
