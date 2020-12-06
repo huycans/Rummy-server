@@ -30,7 +30,7 @@ const inputValidator = (req, res, next) => {
   return next();
 };
 
-userRouter.post("/signup", cors.cors, inputValidator, (req, res, next) => {
+userRouter.post("/signup", cors.corsWithOptions, inputValidator, (req, res, next) => {
   Users.register(new Users({ username: req.body.username }), req.body.password, (err, user) => {
     if (err) {
       res.statusCode = 500;
@@ -64,7 +64,7 @@ userRouter.post("/signup", cors.cors, inputValidator, (req, res, next) => {
   });
 });
 
-userRouter.post("/signin", cors.cors, inputValidator, (req, res, next) => {
+userRouter.post("/signin", cors.corsWithOptions, inputValidator, (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     //if user doesn't exist, it does not count as an error, this info will be parsed in the info variable
     if (err) return next(err);
