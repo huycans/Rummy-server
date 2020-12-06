@@ -111,7 +111,7 @@ module.exports = class Lobby {
      * @param {Object} data -> the data received from clients 
      */
     processingData(webSocket, data) {
-        console.log("data from clients: ", data);
+        // console.log("data from clients: ", data);
 
         //sanitize data.card.rank, which was converted into string cus JSON.parse
         if (data.card) {
@@ -161,7 +161,7 @@ module.exports = class Lobby {
      * This function is used to delete the lobby when the game is over
      */
     selfDestruct() {
-        console.log("Removing Lobby", this.code);
+        // console.log("Removing Lobby", this.code);
         for (let socket of this.sockets) {
             if (socket != null) {
                 socket.terminate();

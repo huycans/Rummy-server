@@ -84,7 +84,7 @@ app
       res.json({ message: "Lobby created successfully", token: rummy.lobbies[lobbycode].token });
     } else {
       // res.redirect('/');
-      console.log("Error creating or joining lobby");
+      // console.log("Error creating or joining lobby");
       res.statusCode = 500;
       res.json({ message: "Lobby is full, unavailable, or room code is invalid." });
     }

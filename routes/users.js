@@ -1,7 +1,5 @@
 var express = require('express');
 var passport = require("passport");
-var path = require('path');
-var fs = require("fs");
 var bodyParser = require('body-parser');
 
 var cors = require("./cors");
@@ -29,8 +27,6 @@ const inputValidator = (req, res, next) => {
     return;
   }
 
-  // Check queryParameters
-  // queryParameters.$or[0].username
   return next();
 };
 
@@ -55,7 +51,7 @@ userRouter.post("/signup", cors.cors, inputValidator, (req, res, next) => {
           return;
         }
         var token = authenticate.getToken({ _id: user._id });
-        console.log("token:", token);
+        // console.log("token:", token);
         if (user.salt) user.salt = undefined;
         if (user.hash) user.hash = undefined;
         passport.authenticate("local")(req, res, () => {
