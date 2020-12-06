@@ -46,14 +46,15 @@ app.use(helmet.xssFilter());
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://localhost:3000"],
-      objectSrc: ["'none'"],  
-      styleSrc: ["'self'"],
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "default-src": ["'self'"],
+      "script-src": ["'self'", "https://localhost:3000"],
+      "object-src": ["'none'"],  
+      "style-src": ["'self'"],
     },
   })
 );
-
+console.log(helmet.contentSecurityPolicy.getDefaultDirectives());
 
 //connect to database
 console.log("Connecting to db");
