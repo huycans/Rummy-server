@@ -7,6 +7,8 @@ var mongoose = require("mongoose");
 var passport = require("passport");
 var https = require('https');
 var fs = require('fs');
+var helmet = require("helmet");
+
 const WebSocket = require('ws');
 const Game = require('./game');
 
@@ -30,6 +32,16 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.use(passport.initialize());
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://localhost:3000"],
+      objectSrc: ["'none'"],  
+      styleSrc: ["'self'"],
+    },
+  })
+);
 
 
 //connect to database
