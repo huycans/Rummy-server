@@ -723,19 +723,19 @@ module.exports = class Lobby {
             //if the deck is out of cards
             if (this.deck.length == 0) {
                 //game is a draw
-                let l = 0;
+                let i = 0;
                 this.updateHistory({
                     cmd: 'gamedraw',
-                    player: l
+                    player: i
                 });
-                this.sendData(this.sockets[l], {
+                this.sendData(this.sockets[i], {
                     cmd: 'gamedraw',
                 });
-                this.sendData(this.sockets[l ^ 1], {
+                this.sendData(this.sockets[i ^ 1], {
                     cmd: 'gamedraw',
                 });
 
-                Users.findByIdAndUpdate(this.sockets[l].userId, {
+                Users.findByIdAndUpdate(this.sockets[i].userId, {
                     $inc: {
                         gamePlayed: 1,
                         gameDraw: 1
@@ -744,7 +744,7 @@ module.exports = class Lobby {
                         gameHistory: JSON.stringify(this.history)
                     }
                 }, (err, doc) => {
-                    Users.findByIdAndUpdate(self.sockets[l ^ 1].userId, {
+                    Users.findByIdAndUpdate(self.sockets[i ^ 1].userId, {
                         $inc: {
                             gamePlayed: 1,
                             gameDraw: 1

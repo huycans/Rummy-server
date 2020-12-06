@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const app = express();
 
 const whitelist = process.env.WHITELIST || ["https://localhost:3000"];
 var corsOptionDelegate = (req, callback) => {
@@ -12,5 +11,5 @@ var corsOptionDelegate = (req, callback) => {
   }
   callback(null, corsOptions);
 };
-exports.cors = cors();
+// exports.cors = cors();
 exports.corsWithOptions = cors(corsOptionDelegate);
