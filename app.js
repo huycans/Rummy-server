@@ -31,7 +31,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+//initialize passport
 app.use(passport.initialize());
+
+
 //use helmet to protect again common vulnerabilities
 app.use(helmet.dnsPrefetchControl());
 app.use(helmet.expectCt());
@@ -54,7 +57,6 @@ app.use(
     },
   })
 );
-console.log(helmet.contentSecurityPolicy.getDefaultDirectives());
 
 //connect to database
 console.log("Connecting to db");
