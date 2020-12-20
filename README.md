@@ -18,3 +18,7 @@ The game allows players to resume playing after a disconnaction, assuming that p
 A live demo of this project can be found here: https://rummy-cardgame.herokuapp.com/
 
 Note that this demo doesn't use SSL due to Heroku's limitation.
+
+# Credits
+This repo is a heavily modified version of https://github.com/sshh12/Rummy, written by sshh12.
+Addtional help by https://github.com/andrianitan.
