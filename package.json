@@ -2,7 +2,11 @@
   "name": "swe681",
   "version": "0.0.0",
   "private": true,
-  "scripts": {
+  "engines": {
+    "node": "10.x",
+    "yarn": "1.x"
+  },
+    "scripts": {
     "start": "node app.js"
   },
   "dependencies": {

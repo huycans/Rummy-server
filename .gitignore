@@ -1,3 +1,4 @@
 /node_modules
 /secret/server.cert
 /secret/server.key
+/*.env
