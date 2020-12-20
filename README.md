@@ -1,2 +1,4 @@
 # Rummy-server
-Server for rummy game
+This is the server for the rummy card game.
+
+# How to run

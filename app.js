@@ -6,6 +6,7 @@ var logger = require('morgan');
 var mongoose = require("mongoose");
 var passport = require("passport");
 var https = require('https');
+var http = require('http');
 var fs = require('fs');
 var helmet = require("helmet");
 
@@ -51,7 +52,7 @@ app.use(
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
-      "script-src": ["'self'", "https://localhost:3000"],
+      "script-src": ["'self'", "http://localhost:3000"],
       "object-src": ["'none'"],  
       "style-src": ["'self'"],
     },
@@ -72,13 +73,10 @@ connect.then(
 );
 
 //https server
-var httpsServer = https.createServer({
-  key: fs.readFileSync(path.win32.resolve(__dirname, "./secret/server.key")),
-  cert: fs.readFileSync(path.win32.resolve(__dirname, './secret/server.cert'))
-}, app);
+var httpServer = http.createServer(app);
 
 //establish websocket
-const wss = new WebSocket.Server({ server: httpsServer });
+const wss = new WebSocket.Server({ server: httpServer });
 const rummy = new Game(wss);
 
 // Ignore Socket Errors
@@ -149,11 +147,11 @@ app.set('port', port);
  * Listen on provided port, on all network interfaces.
  */
 
-httpsServer.on('error', onError);
-httpsServer.on('listening', onListening);
+httpServer.on('error', onError);
+httpServer.on('listening', onListening);
 
 // Start Server
-httpsServer.listen(port, () => {
+httpServer.listen(port, () => {
   console.log("Listening on port " + port + "...");
 });
 /**
@@ -209,7 +207,7 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = httpsServer.address();
+  var addr = httpServer.address();
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
