@@ -49,7 +49,7 @@ app.use(
   helmet.contentSecurityPolicy({
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "default-src": ["'self'"],
+      "default-src": ["'self'", process.env.WSS || "ws://rummy-cardgame.herokuapp.com/"],
       "script-src": ["'self'", "http://localhost:3000"],
       "object-src": ["'none'"],  
       "style-src": ["'self'"],
