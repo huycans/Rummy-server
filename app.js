@@ -13,7 +13,6 @@ var helmet = require("helmet");
 const WebSocket = require('ws');
 const Game = require('./game');
 
-var debug = require('debug')('swe681:server');
 
 var userRouter = require('./routes/users');
 var cors = require("./routes/cors");
@@ -211,7 +210,6 @@ function onListening() {
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
-  debug('Listening on ' + bind);
 }
 
 
