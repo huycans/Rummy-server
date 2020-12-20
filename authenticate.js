@@ -14,7 +14,8 @@ exports.local = passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-var privateKey = fs.readFileSync(path.win32.resolve(__dirname,"./secret/server.key"));
+const SECRET_KEY = process.env.SECRET_KEY || "1234567890"
+var privateKey = SECRET_KEY;
 exports.getToken = function(user) {
   return jwt.sign(user, privateKey, { expiresIn: 7200});//expires in 2 hours
 };
