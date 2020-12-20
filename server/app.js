@@ -111,9 +111,9 @@ app
 
 
 //serve static files from frontend, if they exist
-app.use(express.static(path.join(__dirname, 'build')));
+app.use(express.static(path.join(__dirname, '../react-ui/build')));
 app.get('*', function (req, res) {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  res.sendFile(path.join(__dirname, '../react-ui/build', 'index.html'));
 });
 
 // catch 404 and forward to error handler
